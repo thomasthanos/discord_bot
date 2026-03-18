@@ -1,0 +1,7 @@
+.env
+/ffmpeg
+*.db
+src/data/secret.key
+src/data/allowed_users.json
+/src/cogs/__pycache__
+*.pyc

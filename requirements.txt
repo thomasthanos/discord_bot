@@ -1,0 +1,8 @@
+discord.py[voice]
+flask
+flask-socketio
+eventlet
+yt-dlp
+spotipy
+cryptography
+python-dotenv

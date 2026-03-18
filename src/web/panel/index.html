@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bot Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+  <link rel="icon" type="image/x-icon" href="/static/logs.ico">
+</head>
+<body>
+  <div class="app">
+
+    <!-- TITLEBAR -->
+    <div class="titlebar">
+      <div class="traffic-lights">
+        <span class="tl tl-r" id="tl-close"></span>
+        <span class="tl tl-y" id="tl-min"></span>
+        <span class="tl tl-g" id="tl-max"></span>
+      </div>
+      <span class="titlebar-title">Discord Bot Manager</span>
+      <span id="titlebar-uptime"></span>
+    </div>
+
+    <div class="app-body">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+
+        <!-- Bot profile -->
+        <div class="bot-profile">
+          <div class="bot-avatar-wrap">
+            <div class="bot-avatar-ph" id="bot-avatar-ph">🤖</div>
+            <img class="bot-avatar-img" id="bot-avatar-img" src="" alt="" style="display:none">
+            <span class="bot-online-dot" id="bot-online-dot"></span>
+          </div>
+          <div>
+            <div class="bot-name" id="bot-name">Discord Bot</div>
+            <div class="bot-status" id="bot-status-text">Offline</div>
+          </div>
+        </div>
+
+        <!-- SERVERS -->
+        <div class="sb-section-label">Servers</div>
+        <div class="server-icons-row" id="server-icons-row">
+          <div class="srv-icon srv-icon-add" title="Add server">+</div>
+        </div>
+
+        <!-- GENERAL -->
+        <div class="sb-section-label">General</div>
+        <div class="nav-section-general">
+          <button class="nav-item active" data-tab="dashboard">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="1" width="6" height="6" rx="1.5"/>
+              <rect x="9" y="1" width="6" height="6" rx="1.5"/>
+              <rect x="1" y="9" width="6" height="6" rx="1.5"/>
+              <rect x="9" y="9" width="6" height="6" rx="1.5"/>
+            </svg>
+            <span>Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="music">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 2.5v8a2.5 2.5 0 1 1-2-2.45"/>
+              <path d="M9 2.5l5-1v3l-5 1"/>
+            </svg>
+            <span>Music Player</span>
+            <span class="nav-badge" id="nb-music" style="display:none">0</span>
+          </button>
+        </div>
+
+        <!-- MANAGEMENT -->
+        <div class="sb-section-label">Management</div>
+        <div class="nav-section-management">
+          <button class="nav-item" data-tab="moderation">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 1.5L2 4v4c0 3.3 2.5 5.7 6 6.5 3.5-.8 6-3.2 6-6.5V4L8 1.5z"/>
+            </svg>
+            <span>Moderation</span>
+            <span class="nav-badge" id="nb-mod" style="display:none">0</span>
+          </button>
+          <button class="nav-item" data-tab="invites">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="5.5" cy="5" r="2.5"/>
+              <circle cx="11.5" cy="5" r="2"/>
+              <path d="M1 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4"/>
+              <path d="M14 13c0-1.7-1.1-3.1-2.5-3.6"/>
+            </svg>
+            <span>Invite Tracker</span>
+            <span class="nav-badge" id="nb-inv" style="display:none">0</span>
+          </button>
+        </div>
+
+        <!-- Sidebar footer -->
+        <div class="sb-footer">
+          <div class="sb-user">
+            <div class="sb-user-av">A</div>
+            <div class="sb-user-info">
+              <div class="sb-user-name">Admin</div>
+              <div class="sb-user-tag">#0001</div>
+            </div>
+            <button class="sb-settings-btn" title="Settings">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="8" r="2.5"/>
+                <path d="M8 1v1.5M8 13.5V15M15 8h-1.5M2.5 8H1M13.24 2.76l-1.06 1.06M3.82 12.18l-1.06 1.06M13.24 13.24l-1.06-1.06M3.82 3.82L2.76 2.76"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- MAIN CONTENT -->
+      <main class="main-content">
+
+        <!-- STATUS BAR -->
+        <div class="status-bar">
+          <div class="status-pill" id="status-pill">
+            <span class="status-dot" id="sb-dot"></span>
+            <span id="sb-status-text">Offline</span>
+          </div>
+          <div class="status-item">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M1 8.5c1.4-1.5 3.2-2.4 5-2.4s3.6.9 5 2.4"/>
+              <path d="M3.2 10.5c.7-.8 1.7-1.3 2.8-1.3s2.1.5 2.8 1.3"/>
+              <circle cx="6" cy="11.5" r="0.6" fill="currentColor" stroke="none"/>
+            </svg>
+            <span id="sb-ping">—ms</span>
+          </div>
+          <div class="status-item">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1" y="3.5" width="10" height="6.5" rx="1.5"/>
+              <path d="M4 3.5V2.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1"/>
+            </svg>
+            <span id="sb-servers">0 servers</span>
+          </div>
+          <div class="status-item">
+            <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="6" cy="6" r="5"/>
+              <polyline points="6,3 6,6 8,7.5"/>
+            </svg>
+            <span id="sb-uptime">00:00:00</span>
+          </div>
+        </div>
+
+        <!-- ═══════════════ DASHBOARD ═══════════════ -->
+        <div class="tab-panel active" id="panel-dashboard">
+          <div class="page-header">
+            <h1 class="page-title">Dashboard</h1>
+            <p class="page-sub">Overview of your bot's activity and performance</p>
+          </div>
+
+          <div class="stat-grid" id="dash-stat-grid">
+            <!-- Songs Played -->
+            <div class="stat-card">
+              <div class="sc-top">
+                <div class="sc-icon-wrap sc-icon-blurple">
+                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 2.5v9a2.5 2.5 0 1 1-2-2.45"/>
+                    <path d="M9 2.5l5.5-1.2v3.2L9 5.7"/>
+                  </svg>
+                </div>
+                <span class="sc-trend neutral" id="sct-plays">+0%</span>
+              </div>
+              <div class="sc-value" id="scv-plays">0</div>
+              <div class="sc-label">Songs Played</div>
+            </div>
+            <!-- Mod Actions -->
+            <div class="stat-card">
+              <div class="sc-top">
+                <div class="sc-icon-wrap sc-icon-amber">
+                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 1.5L2 4.5v4.5c0 4 3 6.5 7 7.5 4-1 7-3.5 7-7.5V4.5L9 1.5z"/>
+                  </svg>
+                </div>
+                <span class="sc-trend neutral" id="sct-mod">+3%</span>
+              </div>
+              <div class="sc-value" id="scv-mod">0</div>
+              <div class="sc-label">Mod Actions</div>
+            </div>
+            <!-- Invites Tracked -->
+            <div class="stat-card">
+              <div class="sc-top">
+                <div class="sc-icon-wrap sc-icon-teal">
+                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="6.5" cy="6" r="3"/>
+                    <circle cx="13" cy="6" r="2.2"/>
+                    <path d="M1 15c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5"/>
+                    <path d="M15.5 15c0-2-1.3-3.7-3-4.4"/>
+                  </svg>
+                </div>
+                <span class="sc-trend down" id="sct-inv">-2%</span>
+              </div>
+              <div class="sc-value" id="scv-inv">0</div>
+              <div class="sc-label">Invites Tracked</div>
+            </div>
+            <!-- Commands Used -->
+            <div class="stat-card">
+              <div class="sc-top">
+                <div class="sc-icon-wrap sc-icon-green">
+                  <svg viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="2,12 6,6 9.5,9 13.5,3 16,5"/>
+                  </svg>
+                </div>
+                <span class="sc-trend up" id="sct-users">+28%</span>
+              </div>
+              <div class="sc-value" id="scv-users">0</div>
+              <div class="sc-label">Commands Used</div>
+            </div>
+          </div>
+
+          <div class="dash-cols">
+            <!-- Recent Activity -->
+            <div class="panel-card" id="activity-card">
+              <div class="panel-card-head">
+                <div class="pch-left">
+                  <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 10c0 .6-.4 1-1 1H3l-2 3V3a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v7z"/>
+                  </svg>
+                  <span class="pch-title">Recent Activity</span>
+                </div>
+                <span class="pch-sub" id="activity-sub">Last 20 events</span>
+              </div>
+              <div class="activity-table" id="dash-activity">
+                <div class="empty-state">No recent activity</div>
+              </div>
+            </div>
+
+            <!-- Right column -->
+            <div class="dash-right-col">
+              <!-- Top Commands -->
+              <div class="panel-card" id="commands-card">
+                <div class="panel-card-head">
+                  <div class="pch-left">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="1,11 5,5.5 8.5,8 12.5,2.5 15,4.5"/>
+                    </svg>
+                    <span class="pch-title">Top Actions</span>
+                  </div>
+                </div>
+                <div class="top-cmd-list" id="top-cmd-list">
+                  <div class="empty-state">No command data</div>
+                </div>
+              </div>
+
+              <!-- Servers Overview -->
+              <div class="panel-card" id="servers-card">
+                <div class="panel-card-head">
+                  <div class="pch-left">
+                    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="4" width="14" height="8" rx="2"/>
+                      <circle cx="4.5" cy="8" r="1.2" fill="currentColor" stroke="none"/>
+                    </svg>
+                    <span class="pch-title">Servers</span>
+                  </div>
+                  <span class="pch-sub" id="servers-card-count">0</span>
+                </div>
+                <div class="server-list-panel" id="dash-servers">
+                  <div class="empty-state">No servers</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════ MUSIC ═══════════════ -->
+        <div class="tab-panel" id="panel-music">
+          <div class="page-header">
+            <h1 class="page-title">Music Player</h1>
+            <p class="page-sub" id="music-page-sub">No music playing</p>
+          </div>
+
+          <div class="guild-pill-row" id="music-guilds"></div>
+
+          <div class="panel-card np-card" id="np-card">
+            <div class="np-top-label">
+              <span class="np-playing-label" id="np-label">NOW PLAYING</span>
+              <span class="np-channel-info" id="np-channel-info"></span>
+            </div>
+            <div class="np-idle" id="np-idle">
+              <div class="np-idle-art">♫</div>
+              <div>
+                <div class="np-idle-title">Nothing is playing</div>
+                <div class="np-idle-sub">Use /play in Discord to start music</div>
+              </div>
+            </div>
+            <div id="np-active" style="display:none">
+              <div class="np-main-row">
+                <div class="np-art-box" id="np-art-box">
+                  <img id="np-img" src="" alt="" style="display:none">
+                  <div class="np-art-ph" id="np-art-ph">▶</div>
+                </div>
+                <div class="np-info">
+                  <div class="np-song-title" id="np-title">—</div>
+                  <div class="np-song-sub" id="np-sub">—</div>
+                  <div class="np-progress-row">
+                    <span class="np-time" id="np-pos">0:00</span>
+                    <div class="np-bar"><div class="np-fill" id="np-fill" style="width:0%"></div></div>
+                    <span class="np-time" id="np-dur">0:00</span>
+                  </div>
+                  <div class="np-controls">
+                    <button class="ctrl-btn" id="ctrl-shuffle" title="Shuffle">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 3h2l5 8h3"/>
+                        <polyline points="11,1 13,3 11,5"/>
+                        <path d="M1 11h2L5.5 7"/>
+                        <polyline points="11,9 13,11 11,13"/>
+                      </svg>
+                    </button>
+                    <button class="ctrl-btn" id="ctrl-prev" title="Previous" disabled>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12,2 5,7 12,12" fill="currentColor" stroke="none"/>
+                        <line x1="2" y1="2" x2="2" y2="12"/>
+                      </svg>
+                    </button>
+                    <button class="ctrl-btn ctrl-play" id="ctrl-play" title="Pause">
+                      <svg id="ctrl-play-icon" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                        <rect x="2" y="2" width="4" height="10" rx="1"/>
+                        <rect x="8" y="2" width="4" height="10" rx="1"/>
+                      </svg>
+                    </button>
+                    <button class="ctrl-btn" id="ctrl-skip" title="Skip">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="2,2 9,7 2,12" fill="currentColor" stroke="none"/>
+                        <line x1="12" y1="2" x2="12" y2="12"/>
+                      </svg>
+                    </button>
+                    <button class="ctrl-btn" id="ctrl-loop" title="Loop">
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M2 9V5a3 3 0 0 1 3-3h5"/>
+                        <polyline points="8,0.5 10,2 8,3.5"/>
+                        <path d="M12 5v4a3 3 0 0 1-3 3H4"/>
+                        <polyline points="6,10 4,11.5 6,13"/>
+                      </svg>
+                    </button>
+                    <div class="vol-wrap">
+                      <svg width="13" height="13" viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="1,4 4,4 7,2 7,11 4,9 1,9" fill="currentColor" stroke="none"/>
+                        <path d="M9.5 4.5a3 3 0 0 1 0 4"/>
+                      </svg>
+                      <div class="vol-bar" id="vol-bar">
+                        <div class="vol-track"></div>
+                        <div class="vol-fill" id="vol-fill" style="width:50%"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-card queue-card">
+            <div class="panel-card-head">
+              <div class="pch-left">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="2" y1="4" x2="14" y2="4"/>
+                  <line x1="2" y1="8" x2="14" y2="8"/>
+                  <line x1="2" y1="12" x2="10" y2="12"/>
+                </svg>
+                <span class="pch-title">Queue</span>
+                <span class="queue-count-badge" id="queue-count">0 tracks</span>
+              </div>
+            </div>
+            <div id="queue-list" class="queue-list">
+              <div class="empty-state">Queue is empty</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════ MODERATION ═══════════════ -->
+        <div class="tab-panel" id="panel-moderation">
+          <div class="page-header">
+            <h1 class="page-title">Moderation Logs</h1>
+            <p class="page-sub">Review moderation actions and logs</p>
+          </div>
+
+          <div class="mini-stat-row" id="mod-mini-stats">
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#f5a623;">⚡</div>
+              <div><div class="ms-val" id="ms-total">0</div><div class="ms-lbl">Total Actions</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#f5a623;">⚠</div>
+              <div><div class="ms-val" id="ms-warn">0</div><div class="ms-lbl">Wipes</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#f04060;">🚫</div>
+              <div><div class="ms-val" id="ms-clears">0</div><div class="ms-lbl">Clears</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#8B8BA7;">🗑</div>
+              <div><div class="ms-val" id="ms-msgs">0</div><div class="ms-lbl">Msgs Logged</div></div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-card-head">
+              <div class="pch-left">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 1.5L2 4v4c0 3.3 2.5 5.7 6 6.5 3.5-.8 6-3.2 6-6.5V4L8 1.5z"/>
+                </svg>
+                <span class="pch-title">Moderation Logs</span>
+              </div>
+              <div class="pch-right">
+                <div class="search-wrap">
+                  <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="5.5" cy="5.5" r="4"/>
+                    <line x1="8.8" y1="8.8" x2="12" y2="12"/>
+                  </svg>
+                  <input type="text" class="search-input" id="mod-search" placeholder="Search logs...">
+                </div>
+                <select class="filter-select" id="mod-server-filter"><option value="">All Servers</option></select>
+                <select class="filter-select" id="mod-user-filter"><option value="">All Users</option></select>
+                <select class="filter-select" id="mod-action-filter"><option value="">All Actions</option></select>
+
+                <!-- Custom date range -->
+                <div class="date-range-wrap" id="mod-date-range-wrap">
+                  <button class="date-range-btn" id="mod-date-range-btn" type="button">
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="2" width="12" height="11" rx="2"/>
+                      <path d="M1 6h12M4 1v2M10 1v2"/>
+                    </svg>
+                    <span id="mod-date-label">Date Range</span>
+                    <span class="drb-val" id="mod-date-val" style="display:none"></span>
+                  </button>
+                  <div class="date-picker-popup" id="mod-date-picker">
+                    <div class="dpp-row">
+                      <div class="dpp-field">
+                        <div class="dpp-label">From</div>
+                        <input type="date" class="dpp-input" id="mod-date-start">
+                      </div>
+                      <div class="dpp-field">
+                        <div class="dpp-label">To</div>
+                        <input type="date" class="dpp-input" id="mod-date-end">
+                      </div>
+                    </div>
+                    <div class="dpp-actions">
+                      <button class="dpp-clear" id="mod-date-clear">Clear</button>
+                      <button class="dpp-apply" id="mod-date-apply">Apply</button>
+                    </div>
+                  </div>
+                </div>
+
+                <select class="filter-select" id="mod-rpp">
+                  <option value="25" selected>25/page</option>
+                  <option value="50">50/page</option>
+                  <option value="100">100/page</option>
+                </select>
+                <button class="action-btn danger-btn" id="mod-delete-btn">
+                  <span>Clear Logs</span>
+                </button>
+              </div>
+            </div>
+            <table class="data-table" id="mod-table">
+              <thead>
+                <tr>
+                  <th data-col="server">SERVER</th>
+                  <th data-col="user">USER</th>
+                  <th data-col="channel">CHANNEL</th>
+                  <th data-col="action">ACTION</th>
+                  <th data-col="details">DETAILS</th>
+                  <th data-col="timestamp">TIME</th>
+                </tr>
+              </thead>
+              <tbody id="mod-body"></tbody>
+            </table>
+            <div class="table-footer">
+              <button class="page-btn" id="mod-prev" disabled>← Prev</button>
+              <span class="page-info" id="mod-page-info">Page 1 of 1</span>
+              <button class="page-btn" id="mod-next" disabled>Next →</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════ INVITES ═══════════════ -->
+        <div class="tab-panel" id="panel-invites">
+          <div class="page-header">
+            <h1 class="page-title">Invite Tracker</h1>
+            <p class="page-sub">Track member joins and invite usage</p>
+          </div>
+
+          <div class="mini-stat-row">
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#22d172;">📥</div>
+              <div><div class="ms-val" id="inv-joins">0</div><div class="ms-lbl">Total Joins</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#f04060;">📤</div>
+              <div><div class="ms-val" id="inv-leaves">0</div><div class="ms-lbl">Total Leaves</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#5865F2;">🏆</div>
+              <div><div class="ms-val" id="inv-top">—</div><div class="ms-lbl">Top Inviter</div></div>
+            </div>
+            <div class="mini-stat">
+              <div class="ms-icon" style="color:#8B8BA7;">📊</div>
+              <div><div class="ms-val" id="inv-total">0</div><div class="ms-lbl">Total Events</div></div>
+            </div>
+          </div>
+
+          <div class="panel-card">
+            <div class="panel-card-head">
+              <div class="pch-left">
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="5.5" cy="5" r="2.5"/>
+                  <circle cx="11.5" cy="5" r="2"/>
+                  <path d="M1 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4"/>
+                  <path d="M14 13c0-1.7-1.1-3.1-2.5-3.6"/>
+                </svg>
+                <span class="pch-title">Invite Events</span>
+              </div>
+              <div class="pch-right">
+                <div class="search-wrap">
+                  <svg viewBox="0 0 13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="5.5" cy="5.5" r="4"/>
+                    <line x1="8.8" y1="8.8" x2="12" y2="12"/>
+                  </svg>
+                  <input type="text" class="search-input" id="inv-search" placeholder="Search...">
+                </div>
+                <select class="filter-select" id="inv-event-filter"><option value="">All Events</option></select>
+                <select class="filter-select" id="inv-member-filter"><option value="">All Members</option></select>
+                <select class="filter-select" id="inv-inviter-filter"><option value="">All Inviters</option></select>
+                <select class="filter-select" id="inv-server-filter"><option value="">All Servers</option></select>
+
+                <!-- Custom date range -->
+                <div class="date-range-wrap" id="inv-date-range-wrap">
+                  <button class="date-range-btn" id="inv-date-range-btn" type="button">
+                    <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                      <rect x="1" y="2" width="12" height="11" rx="2"/>
+                      <path d="M1 6h12M4 1v2M10 1v2"/>
+                    </svg>
+                    <span id="inv-date-label">Date Range</span>
+                    <span class="drb-val" id="inv-date-val" style="display:none"></span>
+                  </button>
+                  <div class="date-picker-popup" id="inv-date-picker">
+                    <div class="dpp-row">
+                      <div class="dpp-field">
+                        <div class="dpp-label">From</div>
+                        <input type="date" class="dpp-input" id="inv-date-start">
+                      </div>
+                      <div class="dpp-field">
+                        <div class="dpp-label">To</div>
+                        <input type="date" class="dpp-input" id="inv-date-end">
+                      </div>
+                    </div>
+                    <div class="dpp-actions">
+                      <button class="dpp-clear" id="inv-date-clear">Clear</button>
+                      <button class="dpp-apply" id="inv-date-apply">Apply</button>
+                    </div>
+                  </div>
+                </div>
+
+                <select class="filter-select" id="inv-rpp">
+                  <option value="25" selected>25/page</option>
+                  <option value="50">50/page</option>
+                  <option value="100">100/page</option>
+                </select>
+                <button class="action-btn danger-btn" id="inv-delete-btn">Clear Logs</button>
+              </div>
+            </div>
+            <table class="data-table" id="inv-table">
+              <thead>
+                <tr>
+                  <th data-col="event_type">EVENT</th>
+                  <th data-col="member">MEMBER</th>
+                  <th data-col="inviter">INVITER</th>
+                  <th data-col="invite_code">CODE</th>
+                  <th data-col="uses">USES</th>
+                  <th data-col="is_temporary">TEMP</th>
+                  <th data-col="timestamp">TIME</th>
+                  <th data-col="server">SERVER</th>
+                  <th data-col="source">SOURCE</th>
+                  <th data-col="notes">NOTES</th>
+                </tr>
+              </thead>
+              <tbody id="inv-body"></tbody>
+            </table>
+            <div class="table-footer">
+              <button class="page-btn" id="inv-prev" disabled>← Prev</button>
+              <span class="page-info" id="inv-page-info">Page 1 of 1</span>
+              <button class="page-btn" id="inv-next" disabled>Next →</button>
+            </div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ═══════════ CUSTOM CLEAR MODAL — MODERATION ═══════════ -->
+  <div class="modal-overlay" id="modal-mod-clear">
+    <div class="modal-box">
+      <div class="modal-icon-zone">
+        <div class="mi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </div>
+        <div class="modal-title">Clear Moderation Logs</div>
+        <div class="modal-subtitle">This action cannot be reversed</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-note-label">Note (optional)</div>
+        <textarea class="modal-note-input" id="mod-clear-note" placeholder="Add a reason for clearing the logs... (e.g. Monthly cleanup, privacy request)"></textarea>
+        <div class="modal-warning">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 1.5L1.5 13h13L8 1.5z"/>
+            <line x1="8" y1="7" x2="8" y2="9.5"/>
+            <circle cx="8" cy="11.5" r="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+          All moderation log entries will be permanently deleted. This cannot be undone.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-cancel" id="mod-clear-cancel">Cancel</button>
+        <button class="modal-confirm" id="mod-clear-confirm">Delete All Logs</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ CUSTOM CLEAR MODAL — INVITES ═══════════ -->
+  <div class="modal-overlay" id="modal-inv-clear">
+    <div class="modal-box">
+      <div class="modal-icon-zone">
+        <div class="mi-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </div>
+        <div class="modal-title">Clear Invite Logs</div>
+        <div class="modal-subtitle">This action cannot be reversed</div>
+      </div>
+      <div class="modal-body">
+        <div class="modal-note-label">Note (optional)</div>
+        <textarea class="modal-note-input" id="inv-clear-note" placeholder="Add a reason for clearing the logs..."></textarea>
+        <div class="modal-warning">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 1.5L1.5 13h13L8 1.5z"/>
+            <line x1="8" y1="7" x2="8" y2="9.5"/>
+            <circle cx="8" cy="11.5" r="0.5" fill="currentColor" stroke="none"/>
+          </svg>
+          All invite tracking records will be permanently deleted. This cannot be undone.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-cancel" id="inv-clear-cancel">Cancel</button>
+        <button class="modal-confirm" id="inv-clear-confirm">Delete All Logs</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js" crossorigin="anonymous"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
