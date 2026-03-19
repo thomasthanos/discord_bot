@@ -1,9 +1,3 @@
-.env
-/ffmpeg
-*.db
-src/data/secret.key
-src/data/allowed_users.json
-/src/cogs/__pycache__
-*.pyc
-ssh-key-2026-03-18.key.pub
-ssh-key-2026-03-18.key
+/env & json
+*.py
+*.py
