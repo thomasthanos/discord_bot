@@ -96,18 +96,6 @@ function shiftIdlePending(client, guildId) {
   return next;
 }
 
-function withTimeout(promise, ms, message) {
-  let timer = null;
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(message)), ms);
-    })
-  ]).finally(() => {
-    if (timer) clearTimeout(timer);
-  });
-}
-
 async function startNextPendingTrack(client, guild, voiceChannel = null, textChannel = null, options = {}) {
   if (!guild) return null;
   const map = getPendingMap(client);
@@ -163,10 +151,14 @@ async function startNextPendingTrack(client, guild, voiceChannel = null, textCha
     await queue.connect(resolvedVoiceChannel);
   }
 
-  debugAudioLog('pending:play', `guild=${guild.id}`, `engine=${next.searchEngine || QueryType.AUTO}`);
+  debugAudioLog(
+    'pending:play',
+    `guild=${guild.id}`,
+    `engine=${next.searchEngine || QueryType.AUTO}`
+  );
   let playResult;
   try {
-    playResult = await withTimeout(client.player.play(resolvedVoiceChannel, next.query, {
+    playResult = await client.player.play(resolvedVoiceChannel, next.query, {
       requestedBy: next.requestedBy || client.user,
       searchEngine: next.searchEngine || QueryType.AUTO,
       fallbackSearchEngine: QueryType.YOUTUBE_SEARCH,
@@ -177,7 +169,7 @@ async function startNextPendingTrack(client, guild, voiceChannel = null, textCha
         leaveOnStop: true,
         leaveOnStopCooldown: 120000
       }
-    }), 15000, 'Timed out while starting pending track playback.');
+    });
   } catch (error) {
     debugAudioLog(
       'pending:play-failed',

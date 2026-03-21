@@ -585,10 +585,13 @@ async function startDashboard(client, database) {
         }
         case 'skip': {
           if (queue.size <= 0) {
-            throw new Error('No next track in the queue.');
+            queue.node.stop();
+            break;
           }
           const skipped = queue.node.skip();
-          if (!skipped) throw new Error('Could not skip current track.');
+          if (!skipped) {
+            queue.node.stop();
+          }
           break;
         }
         case 'back': {

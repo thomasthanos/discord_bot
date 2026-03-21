@@ -260,7 +260,7 @@ player.events.on('emptyQueue', (queue) => {
         } catch (error) {
           console.error('Pending-next failed:', error?.message || error);
         }
-      }, 800);
+      }, 120);
       return;
     }
 
