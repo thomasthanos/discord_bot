@@ -89,7 +89,6 @@ client.trackFallbackAttempts = new Set();
 client.pendingStreamFallbacks = 0;
 client.lastAnnouncedTrackByGuild = new Map();
 client.autoIdleGuilds = new Set();
-let dashboardStarted = false;
 
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = [];
@@ -274,32 +273,26 @@ client.once('clientReady', async () => {
     const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
     try {
       console.log('Registering slash commands...');
-
       const explicitGuildId = process.env.GUILD_ID;
       const targetGuildIds = explicitGuildId
         ? [explicitGuildId]
         : [...client.guilds.cache.keys()];
 
-      // PUT directly overwrites existing commands — no need to clear first
       await Promise.all(
         targetGuildIds.map((guildId) =>
           rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId), { body: slashCommands })
         )
       );
-
       console.log(`Registered ${slashCommands.length} commands in ${targetGuildIds.length} guild(s).`);
     } catch (error) {
       console.error('Error registering commands:', error);
     }
   }
 
-  if (!dashboardStarted) {
-    try {
-      await startDashboard(client, database);
-      dashboardStarted = true;
-    } catch (error) {
-      console.error('Failed to start dashboard:', error);
-    }
+  try {
+    await startDashboard(client, database);
+  } catch (error) {
+    console.error('Failed to start dashboard:', error);
   }
 
   emitDashboardSync();
@@ -307,6 +300,19 @@ client.once('clientReady', async () => {
 });
 
 client.on('interactionCreate', async (interaction) => {
+  // Handle autocomplete
+  if (interaction.isAutocomplete()) {
+    const command = client.commands.get(interaction.commandName);
+    if (command?.autocomplete) {
+      try {
+        await command.autocomplete(interaction, client, database);
+      } catch (error) {
+        console.error(`Autocomplete error for ${interaction.commandName}:`, error);
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
   const command = client.commands.get(interaction.commandName);
   if (!command) return;

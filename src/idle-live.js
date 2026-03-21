@@ -1,4 +1,4 @@
-﻿const { spawn } = require('child_process');
+const { spawn } = require('child_process');
 const youtubedl = require('youtube-dl-exec');
 const ffmpegPath = require('ffmpeg-static');
 const {
@@ -79,16 +79,12 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
 
   const queue = client.player?.nodes?.get(guild.id);
   if (queue) {
-    try {
-      queue.delete();
-    } catch {}
+    try { queue.delete(); } catch {}
   }
 
   let connection = getVoiceConnection(guild.id);
   if (connection) {
-    try {
-      connection.destroy();
-    } catch {}
+    try { connection.destroy(); } catch {}
   }
 
   connection = joinVoiceChannel({
@@ -128,8 +124,6 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
       'idle-live:resolved',
       `guild=${guild.id}`,
       `title=${source.title}`,
-      `author=${source.author}`,
-      `thumb=${source.thumbnail ? 'yes' : 'no'}`,
       `stream=${source.streamUrl.slice(0, 96)}...`
     );
 
@@ -192,11 +186,8 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
     if (session.stopping) return;
     debugAudioLog('idle-live:player-idle', `guild=${guild.id}`);
     session.restartTimer = setTimeout(async () => {
-      try {
-        await playFromSource();
-      } catch (error) {
-        console.error('idle-live restart failed:', error?.message || error);
-      }
+      try { await playFromSource(); }
+      catch (error) { console.error('idle-live restart failed:', error?.message || error); }
     }, 1500);
   });
 
@@ -204,11 +195,8 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
     if (session.stopping) return;
     console.error('idle-live player error:', error?.message || error);
     session.restartTimer = setTimeout(async () => {
-      try {
-        await playFromSource();
-      } catch (restartError) {
-        console.error('idle-live restart after error failed:', restartError?.message || restartError);
-      }
+      try { await playFromSource(); }
+      catch (restartError) { console.error('idle-live restart after error failed:', restartError?.message || restartError); }
     }, 1500);
   });
 
@@ -264,5 +252,3 @@ module.exports = {
   setIdleLiveVolume,
   toggleIdleLivePause
 };
-
-

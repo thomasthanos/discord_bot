@@ -7,8 +7,7 @@ const {
   ButtonStyle
 } = require('discord.js');
 const { isCommandAuthorized, replyUnauthorized } = require('../utils/authorization');
-
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+const { buildSessionDir, saveAttachmentToDisk } = require('../utils/attachments');
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -21,47 +20,20 @@ function formatAuthorTag(user) {
   return user.username || 'Unknown';
 }
 
-async function readAttachmentAsBase64(attachment) {
-  const url = attachment.proxyURL || attachment.url || '';
-  if (!url) return { dataBase64: null, storedInDb: false, storeError: 'missing_url' };
-  if (attachment.size && attachment.size > MAX_ATTACHMENT_BYTES) {
-    return { dataBase64: null, storedInDb: false, storeError: 'file_too_large' };
-  }
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return { dataBase64: null, storedInDb: false, storeError: `http_${response.status}` };
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = Buffer.from(arrayBuffer);
-    if (bytes.length > MAX_ATTACHMENT_BYTES) {
-      return { dataBase64: null, storedInDb: false, storeError: 'file_too_large' };
-    }
-
-    return {
-      dataBase64: bytes.toString('base64'),
-      storedInDb: true,
-      storeError: null
-    };
-  } catch {
-    return { dataBase64: null, storedInDb: false, storeError: 'download_failed' };
-  }
-}
-
-async function serializeMessage(message) {
+async function serializeMessage(message, guildId) {
+  // Each author gets their own stable folder: attachments/<guildId>/<authorId>/
+  const sessionDir = buildSessionDir(guildId, null, message.author?.id || 'unknown');
   const attachments = [];
   for (const attachment of Array.from(message.attachments.values())) {
-    const stored = await readAttachmentAsBase64(attachment);
+    const stored = await saveAttachmentToDisk(attachment, sessionDir, message.id);
     attachments.push({
       name: attachment.name || 'file',
       url: attachment.url || '',
       proxyUrl: attachment.proxyURL || '',
       contentType: attachment.contentType || null,
       size: attachment.size || 0,
-      dataBase64: stored.dataBase64,
-      storedInDb: stored.storedInDb,
+      filePath: stored.filePath,
+      storedOnDisk: stored.storedOnDisk,
       storeError: stored.storeError
     });
   }
@@ -93,9 +65,7 @@ async function serializeMessage(message) {
 async function collectMessages(channel) {
   const messages = [];
   let lastId = null;
-  // Bug fix: cap iterations to avoid infinite loop on channels with exactly
-  // multiples of 100 messages, or if the API unexpectedly keeps returning 100.
-  const MAX_BATCHES = 500; // 500 * 100 = 50 000 messages max
+  const MAX_BATCHES = 500;
   let iterations = 0;
 
   while (iterations < MAX_BATCHES) {
@@ -109,10 +79,8 @@ async function collectMessages(channel) {
     const filtered = Array.from(batch.values()).filter((msg) => !msg.pinned && !msg.system);
     messages.push(...filtered);
     const newLastId = batch.last().id;
-    // Bug fix: if lastId didn't change the API returned the same page — stop.
     if (newLastId === lastId) break;
     lastId = newLastId;
-
     if (batch.size < 100) break;
   }
 
@@ -150,14 +118,8 @@ module.exports = {
     const cancelId = `wipe_cancel_${interaction.id}`;
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(confirmId)
-        .setLabel('Confirm')
-        .setStyle(ButtonStyle.Danger),
-      new ButtonBuilder()
-        .setCustomId(cancelId)
-        .setLabel('Cancel')
-        .setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId(confirmId).setLabel('Confirm').setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId(cancelId).setLabel('Cancel').setStyle(ButtonStyle.Secondary)
     );
 
     await interaction.reply({
@@ -189,12 +151,14 @@ module.exports = {
     let failedCount = 0;
     const messages = await collectMessages(channel);
     const sorted = [...messages].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
+
+    // Each message author gets their own stable folder: attachments/<guildId>/<authorId>/
     const preparedTranscript = [];
     for (const msg of sorted) {
-      preparedTranscript.push(await serializeMessage(msg));
+      preparedTranscript.push(await serializeMessage(msg, interaction.guildId));
     }
-    const deletedIds = new Set();
 
+    const deletedIds = new Set();
     for (const message of messages) {
       try {
         await message.delete();
@@ -209,6 +173,7 @@ module.exports = {
     const transcriptMessages = preparedTranscript.filter((entry) => deletedIds.has(entry.id));
     if (transcriptMessages.length > 0) {
       database.logClear(interaction.user, channel, interaction.guild, transcriptMessages);
+      client.emit('dashboard:clearLogs');
     }
 
     await interaction.editReply({

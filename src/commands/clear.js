@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } = require('discord.js');
+const { buildSessionDir, saveAttachmentToDisk } = require('../utils/attachments');
 
 function formatAuthorTag(user) {
   if (!user) return 'Unknown#0000';
@@ -7,49 +8,20 @@ function formatAuthorTag(user) {
   return user.username || 'Unknown';
 }
 
-const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
-
-async function readAttachmentAsBase64(attachment) {
-  const url = attachment.proxyURL || attachment.url || '';
-  if (!url) return { dataBase64: null, storedInDb: false, storeError: 'missing_url' };
-  if (attachment.size && attachment.size > MAX_ATTACHMENT_BYTES) {
-    return { dataBase64: null, storedInDb: false, storeError: 'file_too_large' };
-  }
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      return { dataBase64: null, storedInDb: false, storeError: `http_${response.status}` };
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const bytes = Buffer.from(arrayBuffer);
-    if (bytes.length > MAX_ATTACHMENT_BYTES) {
-      return { dataBase64: null, storedInDb: false, storeError: 'file_too_large' };
-    }
-
-    return {
-      dataBase64: bytes.toString('base64'),
-      storedInDb: true,
-      storeError: null
-    };
-  } catch {
-    return { dataBase64: null, storedInDb: false, storeError: 'download_failed' };
-  }
-}
-
-async function serializeMessage(message) {
+async function serializeMessage(message, guildId) {
+  // Each author gets their own stable folder: attachments/<guildId>/<authorId>/
+  const sessionDir = buildSessionDir(guildId, null, message.author?.id || 'unknown');
   const attachments = [];
   for (const attachment of Array.from(message.attachments.values())) {
-    const stored = await readAttachmentAsBase64(attachment);
+    const stored = await saveAttachmentToDisk(attachment, sessionDir, message.id);
     attachments.push({
       name: attachment.name || 'file',
       url: attachment.url || '',
       proxyUrl: attachment.proxyURL || '',
       contentType: attachment.contentType || null,
       size: attachment.size || 0,
-      dataBase64: stored.dataBase64,
-      storedInDb: stored.storedInDb,
+      filePath: stored.filePath,
+      storedOnDisk: stored.storedOnDisk,
       storeError: stored.storeError
     });
   }
@@ -99,7 +71,6 @@ module.exports = {
       return;
     }
 
-    // Acknowledge immediately to avoid interaction timeout during attachment archiving.
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const channel = interaction.channel;
@@ -126,11 +97,12 @@ module.exports = {
       return;
     }
 
-    // Store transcript payload before deleting messages, so attachment URLs are still valid.
+    // Serialize before deleting so Discord URLs are still valid
+    // Each message author gets their own stable folder: attachments/<guildId>/<authorId>/
     const sortedTarget = [...targetMessages].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
     const preparedTranscript = [];
     for (const msg of sortedTarget) {
-      preparedTranscript.push(await serializeMessage(msg));
+      preparedTranscript.push(await serializeMessage(msg, interaction.guildId));
     }
 
     const deleted = await channel.bulkDelete(targetMessages, true);
@@ -144,10 +116,8 @@ module.exports = {
 
     database.logClear(interaction.user, channel, interaction.guild, transcriptMessages);
     client.emit('dashboard:sync');
+    client.emit('dashboard:clearLogs');
 
-    await interaction.editReply(
-      `Deleted ${deleted.size} message(s). Transcript saved to dashboard clear logs.`
-    );
+    await interaction.editReply(`Deleted ${deleted.size} message(s). Transcript saved to dashboard clear logs.`);
   }
 };
-

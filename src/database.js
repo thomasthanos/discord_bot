@@ -261,5 +261,18 @@ module.exports = {
       WHERE guild_id = ? AND command_name = ?
     `).get(guildId, commandName.toLowerCase());
     return Number(row?.count || 0) > 0;
+  },
+
+  getAuthorizedUsersForCommand(guildId, commandName) {
+    return db.prepare(`
+      SELECT user_id
+      FROM command_authorized_users
+      WHERE guild_id = ? AND command_name = ?
+    `).all(guildId, commandName.toLowerCase());
+  },
+
+  deleteClearLog(id) {
+    const result = db.prepare('DELETE FROM clear_logs WHERE id = ?').run(id);
+    return result.changes > 0;
   }
 };

@@ -1,5 +1,11 @@
-const { SlashCommandBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, MessageFlags, EmbedBuilder } = require('discord.js');
 const { canManageAuthorization } = require('../utils/authorization');
+
+// Commands that can be restricted — addauthorized and help are always public
+const AUTHORIZABLE_COMMANDS = [
+  'wipe-channel',
+  'invite-logger',
+];
 
 module.exports = {
   category: 'Admin',
@@ -9,8 +15,9 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName('command')
-        .setDescription('Command name, e.g. wipe-channel')
+        .setDescription('Which command to restrict')
         .setRequired(true)
+        .setAutocomplete(true)
     )
     .addUserOption((option) =>
       option
@@ -21,13 +28,23 @@ module.exports = {
     .addStringOption((option) =>
       option
         .setName('mode')
-        .setDescription('Whether to add or remove authorization')
+        .setDescription('Add or remove authorization')
         .setRequired(false)
         .addChoices(
-          { name: 'add', value: 'add' },
-          { name: 'remove', value: 'remove' }
+          { name: '✅ Add', value: 'add' },
+          { name: '❌ Remove', value: 'remove' }
         )
     ),
+
+  async autocomplete(interaction, client, database) {
+    const focused = interaction.options.getFocused().toLowerCase();
+
+    const choices = AUTHORIZABLE_COMMANDS
+      .filter((cmd) => cmd.includes(focused))
+      .map((cmd) => ({ name: `/${cmd}`, value: cmd }));
+
+    await interaction.respond(choices);
+  },
 
   async execute(interaction, client, database) {
     if (!interaction.inGuild()) {
@@ -47,9 +64,9 @@ module.exports = {
     const user = interaction.options.getUser('user', true);
     const mode = interaction.options.getString('mode') || 'add';
 
-    if (!client.commands.has(commandName)) {
+    if (!AUTHORIZABLE_COMMANDS.includes(commandName)) {
       await interaction.reply({
-        content: `Command \`${commandName}\` does not exist.`,
+        content: `\`/${commandName}\` cannot be restricted. Choose from: ${AUTHORIZABLE_COMMANDS.map((c) => `\`/${c}\``).join(', ')}`,
         flags: MessageFlags.Ephemeral
       });
       return;
@@ -57,19 +74,25 @@ module.exports = {
 
     if (mode === 'remove') {
       const removed = database.removeAuthorizedUser(interaction.guildId, commandName, user.id);
-      await interaction.reply({
-        content: removed
-          ? `Removed authorization: <@${user.id}> can no longer use \`/${commandName}\`.`
-          : `<@${user.id}> was not authorized for \`/${commandName}\`.`,
-        flags: MessageFlags.Ephemeral
-      });
+
+      const embed = new EmbedBuilder()
+        .setColor(removed ? 0xe74c3c : 0x95a5a6)
+        .setDescription(removed
+          ? `✅ Removed authorization: <@${user.id}> can no longer use \`/${commandName}\`.`
+          : `⚠️ <@${user.id}> was not authorized for \`/${commandName}\`.`
+        );
+
+      await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
       return;
     }
 
     database.addAuthorizedUser(interaction.guildId, commandName, user, interaction.user);
-    await interaction.reply({
-      content: `Authorized <@${user.id}> for \`/${commandName}\`.`,
-      flags: MessageFlags.Ephemeral
-    });
+
+    const embed = new EmbedBuilder()
+      .setColor(0x1db954)
+      .setDescription(`✅ <@${user.id}> is now authorized to use \`/${commandName}\`.`)
+      .setFooter({ text: `Use /addauthorized again with mode: Remove to undo.` });
+
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
   }
 };

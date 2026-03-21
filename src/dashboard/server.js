@@ -12,6 +12,7 @@ const {
   toggleIdleLivePause
 } = require('../idle-live');
 const { hasIdlePending, startNextPendingTrack, getIdlePendingList, clearIdlePending } = require('../idle-pending');
+const { DATA_DIR } = require('../utils/attachments');
 const DEBUG_AUDIO = String(process.env.DEBUG_AUDIO || '0') !== '0';
 
 function debugAudioLog(...parts) {
@@ -30,7 +31,6 @@ function formatUptime(ms) {
 function buildStats(client, database) {
   const stats = database.getStats();
   const uptime = Date.now() - stats.startTime;
-
   return {
     servers: client.guilds.cache.size,
     users: client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0),
@@ -45,7 +45,6 @@ function buildStats(client, database) {
 function buildSystemHealth(client) {
   const wsPing = Number(client.ws?.ping);
   const voiceNodes = client.player?.nodes?.cache?.size || 0;
-
   return {
     bot: client.isReady() ? 'Online' : 'Connecting',
     latency: Number.isFinite(wsPing) && wsPing >= 0 ? `${wsPing} ms` : 'N/A',
@@ -60,7 +59,6 @@ function buildConfig(client) {
   const hasMembersIntent = Boolean(intents?.has?.(GatewayIntentBits.GuildMembers));
   const spotifyEnabled = Boolean(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET);
   const dashboardPort = client.dashboardInfo?.port || Number(process.env.PORT || 3000);
-
   return {
     prefix: process.env.COMMAND_PREFIX || '!',
     musicEngine: `discord-player v${discordPlayerVersion}`,
@@ -87,7 +85,6 @@ function resolveGuildId(rawGuildId, client) {
 
 function resolvePermissionLabel(defaultPermissions) {
   if (!defaultPermissions) return null;
-
   try {
     const perms = new PermissionsBitField(BigInt(defaultPermissions)).toArray();
     if (!perms.length) return null;
@@ -100,31 +97,21 @@ function resolvePermissionLabel(defaultPermissions) {
 function formatDurationFromMs(value) {
   const ms = Number(value);
   if (!Number.isFinite(ms) || ms <= 0) return '--:--';
-
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
+  if (hours > 0) return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
 function resolveTrackDuration(trackLike) {
   const label = trackLike?.duration;
   if (typeof label === 'string' && label.trim()) return label.trim();
-
   const ms =
-    trackLike?.durationMS ??
-    trackLike?.durationMs ??
-    trackLike?.source?.durationMS ??
-    trackLike?.source?.durationMs ??
-    trackLike?.raw?.durationMS ??
-    trackLike?.raw?.durationMs ??
-    null;
-
+    trackLike?.durationMS ?? trackLike?.durationMs ??
+    trackLike?.source?.durationMS ?? trackLike?.source?.durationMs ??
+    trackLike?.raw?.durationMS ?? trackLike?.raw?.durationMs ?? null;
   return formatDurationFromMs(ms);
 }
 
@@ -148,22 +135,9 @@ function collectionToArray(collection) {
 }
 
 function buildMusicLists(queue) {
-  if (!queue) {
-    return {
-      queue: [],
-      history: []
-    };
-  }
-
-  const upcoming = collectionToArray(queue.tracks)
-    .slice(0, 20)
-    .map((track, index) => serializeTrack(track, index + 1));
-
-  const history = collectionToArray(queue.history?.tracks)
-    .slice(-20)
-    .reverse()
-    .map((track, index) => serializeTrack(track, index + 1));
-
+  if (!queue) return { queue: [], history: [] };
+  const upcoming = collectionToArray(queue.tracks).slice(0, 20).map((track, index) => serializeTrack(track, index + 1));
+  const history = collectionToArray(queue.history?.tracks).slice(-20).reverse().map((track, index) => serializeTrack(track, index + 1));
   return { queue: upcoming, history };
 }
 
@@ -182,15 +156,7 @@ function buildCombinedUpcomingList(client, guildId, queueList) {
   const base = Array.isArray(queueList) ? queueList : [];
   if (!guildId || !hasIdlePending(client, guildId)) return base;
 
-  // Bug fix: pending items are always distinct queue entries (they have no URL yet).
-  // Only deduplicate against queue items that have a real URL — never filter
-  // pending items against each other, since the same song can be queued twice.
-  const seenUrls = new Set(
-    base
-      .map((item) => String(item?.url || '').trim())
-      .filter(Boolean)
-  );
-
+  const seenUrls = new Set(base.map((item) => String(item?.url || '').trim()).filter(Boolean));
   const pending = buildIdlePendingList(client, guildId).map((item, index) => ({
     ...item,
     index: base.length + index + 1,
@@ -207,12 +173,8 @@ function buildCombinedUpcomingList(client, guildId, queueList) {
 function buildSyncPayload(client, database, guildId = null) {
   const queue = getActiveQueue(client, guildId);
   let lists = buildMusicLists(queue);
-  const recentCommands = guildId
-    ? database.getCommandLogsByGuild(guildId, 4)
-    : database.getCommandLogs().slice(0, 4);
-  const commandUsage = guildId
-    ? database.getCommandUsageByGuild(guildId, 4)
-    : database.getCommandUsage(4);
+  const recentCommands = guildId ? database.getCommandLogsByGuild(guildId, 4) : database.getCommandLogs().slice(0, 4);
+  const commandUsage = guildId ? database.getCommandUsageByGuild(guildId, 4) : database.getCommandUsage(4);
   const timestamp = queue?.node?.getTimestamp ? queue.node.getTimestamp() : null;
   const progress = timestamp ? {
     currentLabel: timestamp.current?.label || '0:00',
@@ -243,18 +205,9 @@ function buildSyncPayload(client, database, guildId = null) {
       canBack: false,
       canSkip: hasIdlePending(client, guildId),
       canStop: true,
-      progress: {
-        currentLabel: 'LIVE',
-        currentValue: 0,
-        totalLabel: 'LIVE',
-        totalValue: 0,
-        percent: 0
-      }
+      progress: { currentLabel: 'LIVE', currentValue: 0, totalLabel: 'LIVE', totalValue: 0, percent: 0 }
     };
-    lists = {
-      queue: buildIdlePendingList(client, guildId),
-      history: []
-    };
+    lists = { queue: buildIdlePendingList(client, guildId), history: [] };
   }
 
   return {
@@ -274,19 +227,13 @@ function buildSyncPayload(client, database, guildId = null) {
 
 function getActiveQueue(client, guildId = null) {
   if (!client?.player?.nodes) return null;
-
-  if (guildId) {
-    return client.player.nodes.get(guildId) || null;
-  }
-
+  if (guildId) return client.player.nodes.get(guildId) || null;
   if (client.currentTrack?.guildId) {
     const queueByTrack = client.player.nodes.get(client.currentTrack.guildId);
     if (queueByTrack) return queueByTrack;
   }
-
   const fromCache = client.player.nodes.cache;
   if (!fromCache || fromCache.size === 0) return null;
-
   return fromCache.find((queue) => queue.isPlaying()) || fromCache.first();
 }
 
@@ -294,29 +241,15 @@ function listenWithFallback(server, startPort, maxAttempts = 20) {
   return new Promise((resolve, reject) => {
     let attempt = 0;
     let port = Number(startPort);
-
     const onError = (error) => {
-      if (error.code !== 'EADDRINUSE') {
-        reject(error);
-        return;
-      }
-
+      if (error.code !== 'EADDRINUSE') { reject(error); return; }
       attempt += 1;
-      if (attempt >= maxAttempts) {
-        reject(new Error(`No available port found after ${maxAttempts} attempts, starting from ${startPort}.`));
-        return;
-      }
-
+      if (attempt >= maxAttempts) { reject(new Error(`No available port found after ${maxAttempts} attempts, starting from ${startPort}.`)); return; }
       port += 1;
       server.listen(port);
     };
-
     server.on('error', onError);
-    server.once('listening', () => {
-      server.off('error', onError);
-      resolve(port);
-    });
-
+    server.once('listening', () => { server.off('error', onError); resolve(port); });
     server.listen(port);
   });
 }
@@ -331,11 +264,11 @@ async function startDashboard(client, database) {
   app.set('view engine', 'ejs');
   app.set('views', path.join(__dirname, 'views'));
   app.use(express.static(path.join(__dirname, 'public')));
+  // Serve saved attachments (images, videos, files from /clear and /wipe-channel)
+  app.use('/attachments', express.static(path.join(DATA_DIR, 'attachments')));
   app.use(express.json());
 
-  app.get('/favicon.ico', (req, res) => {
-    res.status(204).end();
-  });
+  app.get('/favicon.ico', (req, res) => { res.status(204).end(); });
 
   function selectedGuildFromRequest(req) {
     const explicit = resolveGuildId(req.query?.guildId, client);
@@ -346,18 +279,8 @@ async function startDashboard(client, database) {
 
   function viewModel(req, page, extras = {}) {
     const selectedGuildId = selectedGuildFromRequest(req);
-    const currentTrack = (selectedGuildId && client.currentTrack?.guildId !== selectedGuildId)
-      ? null
-      : (client.currentTrack || null);
-
-    return {
-      page,
-      currentPath: req.path,
-      selectedGuildId,
-      guildOptions: getGuildOptions(client),
-      currentTrack,
-      ...extras
-    };
+    const currentTrack = (selectedGuildId && client.currentTrack?.guildId !== selectedGuildId) ? null : (client.currentTrack || null);
+    return { page, currentPath: req.path, selectedGuildId, guildOptions: getGuildOptions(client), currentTrack, ...extras };
   }
 
   app.get('/', (req, res) => {
@@ -366,12 +289,8 @@ async function startDashboard(client, database) {
       stats: buildStats(client, database),
       health: buildSystemHealth(client),
       config: buildConfig(client),
-      recentCommands: selectedGuildId
-        ? database.getCommandLogsByGuild(selectedGuildId, 4)
-        : database.getCommandLogs().slice(0, 4),
-      commandUsage: selectedGuildId
-        ? database.getCommandUsageByGuild(selectedGuildId, 4)
-        : database.getCommandUsage(4)
+      recentCommands: selectedGuildId ? database.getCommandLogsByGuild(selectedGuildId, 4) : database.getCommandLogs().slice(0, 4),
+      commandUsage: selectedGuildId ? database.getCommandUsageByGuild(selectedGuildId, 4) : database.getCommandUsage(4)
     }));
   });
 
@@ -381,7 +300,6 @@ async function startDashboard(client, database) {
     client.commands.forEach((cmd) => {
       const category = cmd.category || cmd.meta?.category || 'General';
       const permissionLabel = resolvePermissionLabel(cmd.data.default_member_permissions);
-
       commands.push({
         name: cmd.data.name,
         description: cmd.data.description,
@@ -391,50 +309,30 @@ async function startDashboard(client, database) {
         permissionLabel
       });
     });
-
     res.render('commands', viewModel(req, 'commands', {
       commands,
-      logs: selectedGuildId
-        ? database.getCommandLogsByGuild(selectedGuildId, 100)
-        : database.getCommandLogs()
+      logs: selectedGuildId ? database.getCommandLogsByGuild(selectedGuildId, 100) : database.getCommandLogs()
     }));
   });
 
   app.get('/clearlogs', (req, res) => {
     const selectedGuildId = selectedGuildFromRequest(req);
     res.render('clearlogs', viewModel(req, 'clearlogs', {
-      logs: selectedGuildId
-        ? database.getClearLogsByGuild(selectedGuildId)
-        : database.getClearLogs()
+      logs: selectedGuildId ? database.getClearLogsByGuild(selectedGuildId) : database.getClearLogs()
     }));
   });
 
   app.get('/transcript/:id', (req, res) => {
     const log = database.getClearLog(parseInt(req.params.id, 10));
-    if (!log) {
-      res.status(404).send('Not found');
-      return;
-    }
-
-    res.render('transcript', viewModel(req, 'clearlogs', {
-      log,
-      messages: JSON.parse(log.messages)
-    }));
+    if (!log) { res.status(404).send('Not found'); return; }
+    res.render('transcript', viewModel(req, 'clearlogs', { log, messages: JSON.parse(log.messages) }));
   });
 
   app.get('/invites', (req, res) => {
     const selectedGuildId = selectedGuildFromRequest(req);
-    const logs = selectedGuildId
-      ? database.getInviteLogsByGuild(selectedGuildId, 50)
-      : database.getInviteLogs();
-    const leaderboard = selectedGuildId
-      ? database.getInviteLeaderboardByGuild(selectedGuildId, 10)
-      : database.getInviteLeaderboard(10);
-
-    res.render('invites', viewModel(req, 'invites', {
-      logs,
-      leaderboard
-    }));
+    const logs = selectedGuildId ? database.getInviteLogsByGuild(selectedGuildId, 50) : database.getInviteLogs();
+    const leaderboard = selectedGuildId ? database.getInviteLeaderboardByGuild(selectedGuildId, 10) : database.getInviteLeaderboard(10);
+    res.render('invites', viewModel(req, 'invites', { logs, leaderboard }));
   });
 
   app.get('/api/stats', (req, res) => {
@@ -444,10 +342,22 @@ async function startDashboard(client, database) {
 
   app.get('/api/command-logs', (req, res) => {
     const selectedGuildId = selectedGuildFromRequest(req);
-    const logs = selectedGuildId
-      ? database.getCommandLogsByGuild(selectedGuildId, 50)
-      : database.getCommandLogs().slice(0, 50);
+    const logs = selectedGuildId ? database.getCommandLogsByGuild(selectedGuildId, 50) : database.getCommandLogs().slice(0, 50);
     res.json(logs);
+  });
+
+  app.get('/api/clear-logs', (req, res) => {
+    const selectedGuildId = selectedGuildFromRequest(req);
+    const logs = selectedGuildId ? database.getClearLogsByGuild(selectedGuildId) : database.getClearLogs();
+    res.json(logs);
+  });
+
+  app.delete('/api/clear-logs/:id', (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) { res.status(400).json({ ok: false, message: 'Invalid id.' }); return; }
+    const deleted = database.deleteClearLog(id);
+    if (deleted) client.emit('dashboard:clearLogs');
+    res.json({ ok: deleted });
   });
 
   app.post('/api/player/control', async (req, res) => {
@@ -458,54 +368,26 @@ async function startDashboard(client, database) {
 
     try {
       const idleActive = selectedGuildId ? isIdleLiveActive(client, selectedGuildId) : false;
-      debugAudioLog(
-        'control:request',
-        `action=${action || 'n/a'}`,
-        `requestedGuild=${requestedGuildId || 'n/a'}`,
-        `selectedGuild=${selectedGuildId || 'n/a'}`,
-        `queueExists=${Boolean(queue)}`,
-        `idleActive=${Boolean(idleActive)}`,
-        `hasPending=${selectedGuildId ? hasIdlePending(client, selectedGuildId) : false}`
-      );
+      debugAudioLog('control:request', `action=${action || 'n/a'}`, `guild=${selectedGuildId || 'n/a'}`, `idleActive=${Boolean(idleActive)}`);
 
       if (action === 'skip' && selectedGuildId && idleActive) {
         if (idleSkipInFlightByGuild.has(selectedGuildId)) {
-          debugAudioLog('control:skip-idle-ignored-inflight', `guild=${selectedGuildId}`);
           res.status(409).json({ ok: false, message: 'Idle skip already in progress.' });
           return;
         }
-
         idleSkipInFlightByGuild.add(selectedGuildId);
-        debugAudioLog(
-          'control:skip-idle',
-          `guild=${selectedGuildId}`,
-          `hasPending=${hasIdlePending(client, selectedGuildId)}`,
-          `pendingCount=${getIdlePendingList(client, selectedGuildId, 999).length}`
-        );
         try {
           if (!hasIdlePending(client, selectedGuildId)) {
             res.status(400).json({ ok: false, message: 'No next track in pending queue.' });
             return;
           }
-
           const guild = client.guilds.cache.get(selectedGuildId);
           const session = getIdleLiveSession(client, selectedGuildId);
           const voiceChannelId = session?.connection?.joinConfig?.channelId || null;
           const voiceChannel = (guild && voiceChannelId) ? guild.channels.cache.get(voiceChannelId) : null;
           const textChannel = session?.textChannel || null;
-          debugAudioLog(
-            'control:skip-idle-start-next',
-            `guild=${selectedGuildId}`,
-            `voice=${voiceChannel?.id || 'n/a'}`
-          );
           await startNextPendingTrack(client, guild, voiceChannel, textChannel, { destroyIdleConnection: true });
-          debugAudioLog(
-            'control:skip-idle-handoff',
-            `guild=${selectedGuildId}`,
-            `remainingPending=${getIdlePendingList(client, selectedGuildId, 999).length}`
-          );
           client.emit('dashboard:sync');
-          debugAudioLog('control:skip-idle-response', `guild=${selectedGuildId}`, 'status=200');
           res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
           return;
         } finally {
@@ -516,32 +398,15 @@ async function startDashboard(client, database) {
       if (action === 'stop' && selectedGuildId) {
         const pendingCleared = clearIdlePending(client, selectedGuildId);
         client.autoIdleGuilds?.delete(selectedGuildId);
-
         if (queue) {
-          try {
-            queue.clear();
-          } catch {}
-          try {
-            queue.node.stop();
-          } catch {}
-          try {
-            queue.delete();
-          } catch {}
+          try { queue.clear(); } catch {}
+          try { queue.node.stop(); } catch {}
+          try { queue.delete(); } catch {}
         }
-
-        if (idleActive) {
-          await stopIdleLive(client, selectedGuildId, { destroyConnection: true });
-        }
-
-        if (client.currentTrack?.guildId === selectedGuildId) {
-          client.currentTrack = null;
-        }
+        if (idleActive) await stopIdleLive(client, selectedGuildId, { destroyConnection: true });
+        if (client.currentTrack?.guildId === selectedGuildId) client.currentTrack = null;
         client.emit('dashboard:sync');
-        res.json({
-          ok: true,
-          pendingCleared,
-          payload: buildSyncPayload(client, database, selectedGuildId)
-        });
+        res.json({ ok: true, pendingCleared, payload: buildSyncPayload(client, database, selectedGuildId) });
         return;
       }
 
@@ -553,59 +418,37 @@ async function startDashboard(client, database) {
             res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
             return;
           }
-
           if (action === 'set-volume') {
             const rawValue = Number(req.body?.value);
-            if (!Number.isFinite(rawValue)) {
-              throw new Error('Invalid volume value.');
-            }
-            const volume = Math.max(0, Math.min(100, Math.round(rawValue)));
-            setIdleLiveVolume(client, selectedGuildId, volume);
+            if (!Number.isFinite(rawValue)) throw new Error('Invalid volume value.');
+            setIdleLiveVolume(client, selectedGuildId, Math.max(0, Math.min(100, Math.round(rawValue))));
             client.emit('dashboard:sync');
             res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
             return;
           }
         }
-
         res.status(404).json({ ok: false, message: 'No active queue.' });
         return;
       }
 
       switch (action) {
-        case 'toggle-pause': {
-          if (queue.node.isPaused()) {
-            queue.node.resume();
-          } else {
-            queue.node.pause();
-          }
+        case 'toggle-pause':
+          if (queue.node.isPaused()) queue.node.resume(); else queue.node.pause();
           break;
-        }
         case 'skip': {
-          if (queue.size <= 0) {
-            queue.node.stop();
-            break;
-          }
+          if (queue.size <= 0) { queue.node.stop(); break; }
           const skipped = queue.node.skip();
-          if (!skipped) {
-            queue.node.stop();
-          }
+          if (!skipped) queue.node.stop();
           break;
         }
-        case 'back': {
-          if (queue.history.isEmpty()) {
-            throw new Error('No previous track in the queue.');
-          }
+        case 'back':
+          if (queue.history.isEmpty()) throw new Error('No previous track in the queue.');
           await queue.history.back();
           break;
-        }
         case 'set-volume': {
           const rawValue = Number(req.body?.value);
-          if (!Number.isFinite(rawValue)) {
-            throw new Error('Invalid volume value.');
-          }
-
-          const volume = Math.max(0, Math.min(100, Math.round(rawValue)));
-          queue.node.setVolume(volume);
+          if (!Number.isFinite(rawValue)) throw new Error('Invalid volume value.');
+          queue.node.setVolume(Math.max(0, Math.min(100, Math.round(rawValue))));
           break;
         }
         default:
@@ -614,16 +457,9 @@ async function startDashboard(client, database) {
       }
 
       client.emit('dashboard:sync');
-      debugAudioLog('control:response', `action=${action}`, `guild=${selectedGuildId || 'n/a'}`, 'status=200');
       res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
     } catch (error) {
       console.error('player control error:', error);
-      debugAudioLog(
-        'control:error',
-        `action=${action || 'n/a'}`,
-        `guild=${selectedGuildId || 'n/a'}`,
-        `message=${error?.message || error}`
-      );
       res.status(500).json({ ok: false, message: error.message || 'Player action failed.' });
     }
   });
@@ -654,11 +490,19 @@ async function startDashboard(client, database) {
     });
   });
 
+  client.on('dashboard:clearLogs', () => {
+    io.sockets.sockets.forEach((socket) => {
+      const selectedGuildId = socket.data?.selectedGuildId || null;
+      const logs = selectedGuildId
+        ? database.getClearLogsByGuild(selectedGuildId)
+        : database.getClearLogs();
+      socket.emit('dashboard:clearLogs', logs);
+    });
+  });
+
   const activePort = await listenWithFallback(server, preferredPort);
   client.dashboardInfo = { port: activePort };
-  if (activePort !== preferredPort) {
-    console.warn(`Port ${preferredPort} is busy. Dashboard started on port ${activePort}.`);
-  }
+  if (activePort !== preferredPort) console.warn(`Port ${preferredPort} is busy. Dashboard started on port ${activePort}.`);
   console.log(`Dashboard running at http://localhost:${activePort}`);
 
   return { app, server, io };

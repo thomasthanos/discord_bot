@@ -579,6 +579,46 @@
     }).join('\n');
   }
 
+  function renderClearLogs(logs) {
+    const tbody = document.getElementById('clearLogsBody');
+    const table = document.getElementById('clearLogsTable');
+    const emptyState = document.getElementById('clearLogsEmpty');
+    if (!tbody) return;
+
+    const rows = Array.isArray(logs) ? logs : [];
+    const guildId = selectedGuildId || '';
+    const guildParam = guildId ? `?guildId=${encodeURIComponent(guildId)}` : '';
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      if (table) table.style.display = 'none';
+      if (emptyState) emptyState.style.display = '';
+      return;
+    }
+
+    if (table) table.style.display = '';
+    if (emptyState) emptyState.style.display = 'none';
+
+    tbody.innerHTML = rows.map((log) => {
+      const moderator = escapeHtml(log.moderator_tag || 'Unknown');
+      const channel = escapeHtml(log.channel_name || 'unknown');
+      const count = escapeHtml(log.message_count ?? 0);
+      const guild = escapeHtml(log.guild_name || 'Unknown');
+      const date = escapeHtml(new Date(log.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      const href = `/transcript/${log.id}${guildParam}`;
+      return [
+        `<tr id="clear-log-row-${log.id}">`,
+        `  <td class="user-tag">${moderator}</td>`,
+        `  <td class="channel">#${channel}</td>`,
+        `  <td>${count} items</td>`,
+        `  <td class="server">${guild}</td>`,
+        `  <td class="date">${date}</td>`,
+        `  <td><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><a href="${href}" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;background:rgba(203,213,230,0.08);border:1px solid rgba(203,213,230,0.15);color:#cbd5e6;font-size:12px;font-weight:600;text-decoration:none;"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>Transcript</a><button class="delete-log-btn" data-log-id="${log.id}" title="Delete log" style="background:rgba(231,76,60,0.08);border:1px solid rgba(231,76,60,0.2);border-radius:8px;cursor:pointer;color:#e74c3c;padding:6px 8px;display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></button></div></td>`,
+        '</tr>'
+      ].join('\n');
+    }).join('\n');
+  }
+
   async function fetchStats() {
     try {
       const params = new URLSearchParams();
@@ -714,6 +754,9 @@
     socket.on('dashboard:commandLogs', (logs) => {
       renderCommandLogs(logs);
       renderDashboardRecentLogs(logs);
+    });
+    socket.on('dashboard:clearLogs', (logs) => {
+      renderClearLogs(logs);
     });
   }
 
