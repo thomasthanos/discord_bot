@@ -1,0 +1,88 @@
+﻿<div class="now-playing-bar" id="nowPlayingBar">
+  <div class="np-thumbnail">
+    <img
+      id="npThumbnail"
+      class="<%= currentTrack && currentTrack.thumbnail ? '' : 'hidden-thumb' %>"
+      src="<%= currentTrack && currentTrack.thumbnail ? currentTrack.thumbnail : '' %>"
+      alt="thumbnail"
+    >
+    <svg id="npThumbnailFallback" class="<%= currentTrack && currentTrack.thumbnail ? 'hidden-thumb' : '' %>" viewBox="0 0 24 24" width="24" height="24" fill="#888">
+      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+    </svg>
+  </div>
+
+  <div class="np-info">
+    <div class="np-title" id="npTitle"><%= currentTrack ? currentTrack.title : 'Nothing playing' %></div>
+    <div class="np-artist" id="npArtist"><%= currentTrack ? currentTrack.author : 'Select a server to view playback' %></div>
+  </div>
+
+  <div class="np-control-stack">
+    <div class="np-controls">
+      <button class="np-control-btn np-control-secondary" id="npPrevBtn" type="button" title="Previous track" aria-label="Previous track">
+        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+      <button class="np-play-btn np-control-primary" id="npPauseBtn" type="button" title="Pause or resume" aria-label="Pause or resume">
+        <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      </button>
+      <button class="np-control-btn np-control-stop" id="npStopBtn" type="button" title="Stop music" aria-label="Stop music">
+        <svg viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/></svg>
+      </button>
+      <button class="np-control-btn np-control-secondary" id="npSkipBtn" type="button" title="Skip track" aria-label="Skip track">
+        <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+    </div>
+    <div class="np-inline-progress">
+      <span class="np-inline-progress-label" id="npBarElapsed">0:00</span>
+      <div class="np-inline-progress-track">
+        <div id="npBarProgressFill" class="np-inline-progress-fill"></div>
+      </div>
+      <span class="np-inline-progress-label np-inline-progress-total" id="npBarTotal"><%= currentTrack ? currentTrack.duration : '--:--' %></span>
+    </div>
+  </div>
+
+  <div class="np-volume">
+    <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+    <input id="npVolumeRange" class="np-volume-range" type="range" min="0" max="100" value="50" step="1" aria-label="Volume">
+    <span class="np-volume-value" id="npVolumeValue">50%</span>
+  </div>
+
+  <button class="np-panel-toggle" id="npPanelToggle" type="button" title="Open queue panel" aria-label="Open queue panel">
+    <svg viewBox="0 0 24 24"><path d="M7.41 14.59 12 10l4.59 4.59L18 13.17l-6-6-6 6z"/></svg>
+  </button>
+</div>
+
+<div class="np-details-panel hidden" id="npDetailsPanel">
+  <div class="np-details-head">
+    <div class="np-details-thumb-wrap">
+      <img id="npPanelThumb" class="np-details-thumb <%= currentTrack && currentTrack.thumbnail ? '' : 'hidden-thumb' %>" src="<%= currentTrack && currentTrack.thumbnail ? currentTrack.thumbnail : '' %>" alt="thumbnail">
+      <div id="npPanelThumbFallback" class="np-details-thumb-fallback <%= currentTrack && currentTrack.thumbnail ? 'hidden-thumb' : '' %>">
+        <svg viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+      </div>
+    </div>
+    <div class="np-details-meta">
+      <div class="np-details-title" id="npPanelTitle"><%= currentTrack ? currentTrack.title : 'Nothing playing' %></div>
+      <div class="np-details-artist" id="npPanelArtist"><%= currentTrack ? currentTrack.author : 'No active track' %></div>
+      <div class="np-details-requested" id="npPanelRequested">Requested by <%= currentTrack && currentTrack.requestedBy ? currentTrack.requestedBy : 'Unknown' %></div>
+    </div>
+  </div>
+
+  <div class="np-progress-wrap">
+    <div class="np-progress-track"><div id="npProgressFill" class="np-progress-fill"></div></div>
+    <div class="np-progress-time">
+      <span id="npElapsed">0:00</span>
+      <span id="npTotal"><%= currentTrack ? currentTrack.duration : '--:--' %></span>
+    </div>
+  </div>
+
+  <div class="np-panel-tabs">
+    <button class="np-panel-tab active" id="npTabQueue" type="button">Queue (<span id="npQueueCount">0</span>)</button>
+    <button class="np-panel-tab" id="npTabHistory" type="button">History (<span id="npHistoryCount">0</span>)</button>
+  </div>
+
+  <div class="np-panel-list" id="npPanelQueueList">
+    <div class="music-empty">No tracks in queue.</div>
+  </div>
+  <div class="np-panel-list hidden" id="npPanelHistoryList">
+    <div class="music-empty">No history yet.</div>
+  </div>
+</div>

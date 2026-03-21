@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transcript - #<%= log.channel_name %></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="transcript-page" data-page="transcript" data-guild-id="<%= selectedGuildId || '' %>">
+  <%- include('partials/sidebar') %>
+
+  <main class="main">
+    <div class="page-shell">
+      <a href="/clearlogs<%= selectedGuildId ? ('?guildId=' + selectedGuildId) : '' %>" class="back-link">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+        Back to logs
+      </a>
+
+      <div class="transcript-header">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="transcript-channel">
+              <span class="hash">#</span> <%= log.channel_name %>
+            </div>
+            <div class="transcript-meta">
+              Cleared by <strong><%= log.moderator_tag %></strong> in <%= log.guild_name %>
+            </div>
+            <div class="transcript-badges">
+              <span class="transcript-badge">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+                <%= messages.length %> messages
+              </span>
+              <%
+                let attachCount = 0;
+                let embedCount = 0;
+                messages.forEach(m => {
+                  attachCount += (m.attachments || []).length;
+                  embedCount += (m.embeds || []).length;
+                });
+              %>
+              <% if (attachCount > 0) { %>
+                <span class="transcript-badge">
+                  <svg viewBox="0 0 24 24"><path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5v10.5c0 .55-.45 1-1 1s-1-.45-1-1V6H10v9.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V5c0-2.21-1.79-4-4-4S7 2.79 7 5v12.5c0 3.04 2.46 5.5 5.5 5.5s5.5-2.46 5.5-5.5V6h-1.5z"/></svg>
+                  <%= attachCount %> attachments
+                </span>
+              <% } %>
+              <% if (embedCount > 0) { %>
+                <span class="transcript-badge">
+                  <svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+                  <%= embedCount %> embeds
+                </span>
+              <% } %>
+            </div>
+          </div>
+          <div class="transcript-date">
+            <%= new Date(log.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) %>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-list">
+        <%
+          const colors = { s: 'avatar-s', r: 'avatar-r', t: 'avatar-t', a: 'avatar-a', m: 'avatar-m', g: 'avatar-g' };
+          function escapeHtml(value) {
+            return String(value ?? '')
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+          }
+          function renderDiscordLikeText(raw) {
+            const safe = escapeHtml(raw || '');
+            return safe
+              .replace(/\r\n|\r|\n/g, '<br>')
+              .replace(/`([^`]+)`/g, '<code>$1</code>')
+              .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+              .replace(/__([^_]+)__/g, '<u>$1</u>');
+          }
+          function fileExt(nameOrUrl) {
+            const source = String(nameOrUrl || '').split('?')[0];
+            const lastDot = source.lastIndexOf('.');
+            if (lastDot === -1) return '';
+            return source.slice(lastDot + 1).toLowerCase();
+          }
+          function isImage(att) {
+            const type = String(att?.contentType || '').toLowerCase();
+            if (type.startsWith('image/')) return true;
+            return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(fileExt(att?.name || att?.url));
+          }
+          function isVideo(att) {
+            const type = String(att?.contentType || '').toLowerCase();
+            if (type.startsWith('video/')) return true;
+            return ['mp4', 'webm', 'mov', 'mkv'].includes(fileExt(att?.name || att?.url));
+          }
+          function getStoredDataUrl(att) {
+            if (!att?.dataBase64) return '';
+            const mime = att.contentType || 'application/octet-stream';
+            return `data:${mime};base64,${att.dataBase64}`;
+          }
+          function normalizeMediaUrl(rawUrl) {
+            if (!rawUrl) return '';
+            try {
+              const parsed = new URL(rawUrl);
+              const isDiscordMediaHost = /(^|\\.)(cdn\\.discordapp\\.com|media\\.discordapp\\.net|cdn\\.discordapp\\.net)$/i
+                .test(parsed.hostname);
+              if (isDiscordMediaHost) {
+                parsed.search = '';
+                parsed.hash = '';
+              }
+              return parsed.toString();
+            } catch {
+              return String(rawUrl).split('?')[0];
+            }
+          }
+          function getAvatarClass(name) {
+            const first = (name || 'U')[0].toLowerCase();
+            return colors[first] || 'avatar-default';
+          }
+          function getAuthorColor(name) {
+            const colorMap = { s: '#9b59b6', r: '#27ae60', t: '#2ecc71', a: '#3498db', m: '#e67e22', g: '#1abc9c' };
+            const first = (name || 'U')[0].toLowerCase();
+            return colorMap[first] || '#7289da';
+          }
+        %>
+        <% messages.forEach(msg => { %>
+          <div class="message">
+            <div class="message-avatar <%= getAvatarClass(msg.author) %>">
+              <% if (msg.authorAvatarUrl) { %>
+                <img src="<%= normalizeMediaUrl(msg.authorAvatarUrl) %>" alt="avatar" class="message-avatar-image">
+              <% } else { %>
+                <%= (msg.author || 'U')[0].toUpperCase() %>
+              <% } %>
+            </div>
+            <div class="message-body">
+              <div>
+                <span class="message-author" style="color: <%= getAuthorColor(msg.author) %>"><%= msg.author.split('#')[0] %></span>
+                <span class="message-author-tag">#<%= msg.author.split('#')[1] || '0000' %></span>
+              </div>
+
+              <% if (msg.content) { %>
+                <div class="message-content"><%= msg.content %></div>
+              <% } %>
+
+              <% if (msg.attachments && msg.attachments.length > 0) { %>
+                <% msg.attachments.forEach(att => { %>
+                  <div class="message-attachment">
+                    <% const mediaUrl = getStoredDataUrl(att) || normalizeMediaUrl(att.proxyUrl || att.url); %>
+                    <% if (isImage(att) && mediaUrl) { %>
+                      <button
+                        type="button"
+                        class="message-media-link media-open-btn"
+                        data-media-src="<%= mediaUrl %>"
+                        data-media-kind="image"
+                      >
+                        <img src="<%= mediaUrl %>" alt="<%= att.name || 'image' %>" class="message-attachment-preview">
+                      </button>
+                    <% } else if (isVideo(att) && mediaUrl) { %>
+                      <button
+                        type="button"
+                        class="message-media-link media-open-btn"
+                        data-media-src="<%= mediaUrl %>"
+                        data-media-kind="video"
+                      >
+                        <video class="message-attachment-preview" controls preload="metadata">
+                          <source src="<%= mediaUrl %>" type="<%= att.contentType || 'video/mp4' %>">
+                        </video>
+                      </button>
+                    <% } %>
+
+                    <div class="message-attachment-meta">
+                      <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+                      <span><%= att.name %></span>
+                      <span class="tag"><%= (att.contentType || 'file').split('/').pop().toUpperCase() %></span>
+                      <% if (att.storedInDb === false && att.storeError) { %>
+                        <span class="tag">NOT SAVED</span>
+                      <% } %>
+                    </div>
+                  </div>
+                <% }); %>
+              <% } %>
+
+              <% if (msg.embeds && msg.embeds.length > 0) { %>
+                <% msg.embeds.forEach(embed => { %>
+                  <% const embedThumbUrl = normalizeMediaUrl(embed.thumbnail); %>
+                  <% const embedImageUrl = normalizeMediaUrl(embed.image); %>
+                  <div class="message-embed">
+                    <div class="message-embed-main">
+                      <div class="message-embed-content-wrap">
+                        <% if (embed.author) { %>
+                          <div class="message-embed-source"><%= embed.author %></div>
+                        <% } %>
+
+                        <% if (embed.title) { %>
+                          <div class="message-embed-title">
+                            <% if (embed.url) { %>
+                              <a href="<%= embed.url %>" target="_blank" rel="noopener noreferrer"><%= embed.title %></a>
+                            <% } else { %>
+                              <%= embed.title %>
+                            <% } %>
+                          </div>
+                        <% } %>
+
+                        <% if (embed.description) { %>
+                          <div class="message-embed-desc"><%- renderDiscordLikeText(embed.description) %></div>
+                        <% } %>
+
+                        <% if (embed.fields && embed.fields.length > 0) { %>
+                          <div class="message-embed-fields">
+                            <% embed.fields.forEach(field => { %>
+                              <div class="message-embed-field <%= field.inline ? 'inline' : '' %>">
+                                <div class="message-embed-field-name"><%= field.name %></div>
+                                <div class="message-embed-field-value"><%- renderDiscordLikeText(field.value) %></div>
+                              </div>
+                            <% }); %>
+                          </div>
+                        <% } %>
+                      </div>
+
+                      <% if (embedThumbUrl) { %>
+                        <button
+                          type="button"
+                          class="message-media-link media-open-btn message-embed-thumb-btn"
+                          data-media-src="<%= embedThumbUrl %>"
+                          data-media-kind="image"
+                        >
+                          <img src="<%= embedThumbUrl %>" alt="embed thumbnail" class="message-embed-thumb">
+                        </button>
+                      <% } %>
+                    </div>
+
+                    <% if (embedImageUrl) { %>
+                      <button
+                        type="button"
+                        class="message-media-link media-open-btn message-embed-image-btn"
+                        data-media-src="<%= embedImageUrl %>"
+                        data-media-kind="image"
+                      >
+                        <img src="<%= embedImageUrl %>" alt="embed image" class="message-attachment-preview message-embed-image">
+                      </button>
+                    <% } %>
+                  </div>
+                <% }); %>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+      <div id="mediaLightbox" class="media-lightbox hidden">
+        <button type="button" id="mediaLightboxClose" class="media-lightbox-close" aria-label="Close">x</button>
+        <img id="mediaLightboxImage" class="media-lightbox-image hidden" alt="attachment preview">
+        <video id="mediaLightboxVideo" class="media-lightbox-video hidden" controls></video>
+      </div>
+    </div>
+  </main>
+
+  <%- include('partials/nowplaying') %>
+  <script>
+    (function initMediaLightbox() {
+      const lightbox = document.getElementById('mediaLightbox');
+      const closeBtn = document.getElementById('mediaLightboxClose');
+      const imageEl = document.getElementById('mediaLightboxImage');
+      const videoEl = document.getElementById('mediaLightboxVideo');
+      if (!lightbox || !closeBtn || !imageEl || !videoEl) return;
+
+      function closeLightbox() {
+        lightbox.classList.add('hidden');
+        imageEl.classList.add('hidden');
+        imageEl.removeAttribute('src');
+        videoEl.classList.add('hidden');
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+      }
+
+      function openLightbox(kind, src) {
+        if (!src) return;
+        lightbox.classList.remove('hidden');
+        if (kind === 'video') {
+          imageEl.classList.add('hidden');
+          videoEl.classList.remove('hidden');
+          videoEl.src = src;
+          return;
+        }
+
+        videoEl.classList.add('hidden');
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+        imageEl.classList.remove('hidden');
+        imageEl.src = src;
+      }
+
+      document.querySelectorAll('.media-open-btn').forEach((button) => {
+        button.addEventListener('click', () => {
+          openLightbox(button.dataset.mediaKind || 'image', button.dataset.mediaSrc || '');
+        });
+      });
+
+      closeBtn.addEventListener('click', closeLightbox);
+      lightbox.addEventListener('click', (event) => {
+        if (event.target === lightbox) closeLightbox();
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeLightbox();
+      });
+    })();
+  </script>
+  <%- include('partials/live-sync') %>
+</body>
+</html>

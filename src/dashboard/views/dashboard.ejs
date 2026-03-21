@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="dashboard-page" data-page="dashboard" data-guild-id="<%= selectedGuildId || '' %>">
+  <%- include('partials/sidebar') %>
+
+  <main class="main">
+    <div class="page-shell">
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-subtitle">Minimal view</p>
+
+      <section class="minimal-section section-now">
+        <h2 class="minimal-title">Now Playing</h2>
+        <div class="minimal-card">
+          <div class="np-mini-title" id="dashNowTitle"><%= currentTrack?.title || 'Nothing playing' %></div>
+          <div class="np-mini-meta" id="dashNowMeta">
+            <% if (currentTrack) { %>
+              <%= currentTrack.author || 'Unknown artist' %> - <%= currentTrack.duration || '--:--' %>
+            <% } else { %>
+              Waiting for a track
+            <% } %>
+          </div>
+        </div>
+      </section>
+
+      <section class="minimal-section section-health">
+        <h2 class="minimal-title">System Health</h2>
+        <div class="minimal-health-grid">
+          <div class="minimal-card">
+            <div class="minimal-k">Bot</div>
+            <div class="minimal-v" data-health="bot"><%= health.bot %></div>
+          </div>
+          <div class="minimal-card">
+            <div class="minimal-k">Latency</div>
+            <div class="minimal-v" data-health="latency"><%= health.latency %></div>
+          </div>
+          <div class="minimal-card">
+            <div class="minimal-k">Voice Queues</div>
+            <div class="minimal-v" data-health="voiceQueues"><%= health.voiceQueues %></div>
+          </div>
+          <div class="minimal-card">
+            <div class="minimal-k">Dashboard</div>
+            <div class="minimal-v" data-health="dashboard"><%= health.dashboard %></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="minimal-section section-recent">
+        <h2 class="minimal-title">Recent Commands Log</h2>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>User</th>
+              <th>When</th>
+            </tr>
+          </thead>
+          <tbody id="dashRecentCommandLogsBody">
+            <% recentCommands.forEach(log => { %>
+              <tr>
+                <td class="cmd">/<%= log.command %></td>
+                <td class="user"><%= log.user_tag %></td>
+                <td><%= new Date(log.timestamp).toLocaleString() %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <div class="empty-state" id="dashRecentCommandLogsEmpty" style="<%= recentCommands.length > 0 ? 'display:none;' : '' %>">No command logs yet.</div>
+      </section>
+
+      <section class="minimal-section section-used">
+        <h2 class="minimal-title">Commands Used</h2>
+        <table class="log-table">
+          <thead>
+            <tr>
+              <th>Command</th>
+              <th>Uses</th>
+            </tr>
+          </thead>
+          <tbody id="dashCommandUsageBody">
+            <% commandUsage.forEach(item => { %>
+              <tr>
+                <td class="cmd">/<%= item.command %></td>
+                <td><%= item.uses %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <div class="empty-state" id="dashCommandUsageEmpty" style="<%= commandUsage.length > 0 ? 'display:none;' : '' %>">No command usage yet.</div>
+      </section>
+    </div>
+
+  </main>
+
+  <%- include('partials/nowplaying') %>
+  <%- include('partials/live-sync') %>
+</body>
+</html>
+

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Logs</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="clearlogs" data-guild-id="<%= selectedGuildId || '' %>">
+  <%- include('partials/sidebar') %>
+
+  <main class="main">
+    <div class="page-shell">
+      <h1 class="page-title">Clear Logs</h1>
+      <p class="page-subtitle">Message deletion history with full transcripts</p>
+
+      <% if (logs.length > 0) { %>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Moderator</th>
+              <th>Channel</th>
+              <th>Messages</th>
+              <th>Server</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% logs.forEach(log => { %>
+              <tr>
+                <td class="user-tag"><%= log.moderator_tag %></td>
+                <td class="channel">#<%= log.channel_name %></td>
+                <td><%= log.message_count %> items</td>
+                <td class="server"><%= log.guild_name %></td>
+                <td class="date"><%= new Date(log.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) %></td>
+                <td>
+                  <a href="/transcript/<%= log.id %><%= selectedGuildId ? ('?guildId=' + selectedGuildId) : '' %>" class="transcript-link">
+                    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+                    Transcript
+                  </a>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="empty-state">No clear logs yet. Use /clear in a channel to see logs here.</div>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('partials/nowplaying') %>
+  <%- include('partials/live-sync') %>
+</body>
+</html>

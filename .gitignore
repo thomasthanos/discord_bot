@@ -1,3 +1,4 @@
-/env & json
-*.py
-*.py
+/node_modules
+.env
+.bot.instance.lock
+/data

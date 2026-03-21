@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invite Tracker</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="invites" data-guild-id="<%= selectedGuildId || '' %>">
+  <%- include('partials/sidebar') %>
+
+  <main class="main">
+    <div class="page-shell">
+      <h1 class="page-title">Invite Tracker</h1>
+      <p class="page-subtitle">Track who invited whom</p>
+
+      <div class="config-section" style="margin-bottom: 16px;">
+        <div class="config-title">Top Inviters</div>
+        <% if (leaderboard && leaderboard.length > 0) { %>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>User</th>
+                <th>Total Invites</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% leaderboard.forEach((row, idx) => { %>
+                <tr>
+                  <td><%= idx + 1 %></td>
+                  <td class="user-tag"><%= row.inviter_tag %></td>
+                  <td><span class="badge"><%= row.total_invites %></span></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <div class="empty-state" style="padding: 18px 0;">No leaderboard data yet.</div>
+        <% } %>
+      </div>
+
+      <% if (logs.length > 0) { %>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Inviter</th>
+              <th>New Member</th>
+              <th>Code</th>
+              <th>Server</th>
+              <th>Total Invites</th>
+              <th>Joined</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% logs.forEach(log => { %>
+              <tr>
+                <td class="user-tag"><%= log.inviter_tag %></td>
+                <td>
+                  <span style="display: flex; align-items: center; gap: 8px;">
+                    <span class="invite-icon">
+                      <svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    </span>
+                    <%= log.invited_tag %>
+                  </span>
+                </td>
+                <td class="channel"><%= log.invite_code %></td>
+                <td class="server"><%= log.guild_name %></td>
+                <td><span class="badge"><%= log.total_invites %></span></td>
+                <td class="date">
+                  <%
+                    const now = Date.now();
+                    const then = new Date(log.timestamp).getTime();
+                    const diff = now - then;
+                    const hours = Math.floor(diff / 3600000);
+                    const days = Math.floor(hours / 24);
+                    let timeAgo;
+                    if (days > 0) timeAgo = 'about ' + days + ' day(s) ago';
+                    else if (hours > 0) timeAgo = 'about ' + hours + ' hour(s) ago';
+                    else timeAgo = 'just now';
+                  %>
+                  <%= timeAgo %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } else { %>
+        <div class="empty-state">No invite logs yet. Invites will be tracked automatically when new members join.</div>
+      <% } %>
+    </div>
+  </main>
+
+  <%- include('partials/nowplaying') %>
+  <%- include('partials/live-sync') %>
+</body>
+</html>
