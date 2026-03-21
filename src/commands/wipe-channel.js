@@ -1,4 +1,4 @@
-﻿const {
+const {
   SlashCommandBuilder,
   MessageFlags,
   PermissionFlagsBits,
@@ -93,8 +93,13 @@ async function serializeMessage(message) {
 async function collectMessages(channel) {
   const messages = [];
   let lastId = null;
+  // Bug fix: cap iterations to avoid infinite loop on channels with exactly
+  // multiples of 100 messages, or if the API unexpectedly keeps returning 100.
+  const MAX_BATCHES = 500; // 500 * 100 = 50 000 messages max
+  let iterations = 0;
 
-  while (true) {
+  while (iterations < MAX_BATCHES) {
+    iterations += 1;
     const batch = await channel.messages.fetch({
       limit: 100,
       ...(lastId ? { before: lastId } : {})
@@ -103,7 +108,10 @@ async function collectMessages(channel) {
 
     const filtered = Array.from(batch.values()).filter((msg) => !msg.pinned && !msg.system);
     messages.push(...filtered);
-    lastId = batch.last().id;
+    const newLastId = batch.last().id;
+    // Bug fix: if lastId didn't change the API returned the same page — stop.
+    if (newLastId === lastId) break;
+    lastId = newLastId;
 
     if (batch.size < 100) break;
   }

@@ -1,4 +1,4 @@
-﻿require('dotenv').config();
+require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const { Client, GatewayIntentBits, Collection, REST, Routes, MessageFlags } = require('discord.js');
@@ -41,7 +41,6 @@ function acquireInstanceLock() {
         throw new Error(`Another bot instance is already running (PID ${existingPid}). Stop it first.`);
       }
     }
-
     fs.writeFileSync(INSTANCE_LOCK_FILE, String(process.pid), 'utf8');
   } catch (error) {
     throw new Error(`Failed to acquire instance lock: ${error.message}`);
@@ -53,9 +52,7 @@ function releaseInstanceLock() {
     if (!fs.existsSync(INSTANCE_LOCK_FILE)) return;
     const raw = fs.readFileSync(INSTANCE_LOCK_FILE, 'utf8').trim();
     const lockPid = Number.parseInt(raw, 10);
-    if (lockPid === process.pid) {
-      fs.unlinkSync(INSTANCE_LOCK_FILE);
-    }
+    if (lockPid === process.pid) fs.unlinkSync(INSTANCE_LOCK_FILE);
   } catch {}
 }
 
@@ -72,7 +69,6 @@ process.on('uncaughtException', (error) => {
   console.error('Uncaught exception:', error);
 });
 
-// Reduce noisy youtubei parser warnings in production logs.
 Log.setLevel(Log.Level.ERROR);
 
 const client = new Client({
@@ -99,32 +95,17 @@ const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = [];
 
 function loadCommands(dir) {
-  if (!fs.existsSync(dir)) {
-    console.warn(`[commands] Directory not found: ${dir}`);
-    return;
-  }
-
+  if (!fs.existsSync(dir)) { console.warn(`[commands] Directory not found: ${dir}`); return; }
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      loadCommands(fullPath);
-      continue;
-    }
-
-    if (entry.name.endsWith('.js')) {
-      commandFiles.push(fullPath);
-    }
+    if (entry.isDirectory()) { loadCommands(fullPath); continue; }
+    if (entry.name.endsWith('.js')) commandFiles.push(fullPath);
   }
 }
 
-function emitDashboardSync() {
-  client.emit('dashboard:sync');
-}
-
-function emitCommandLogsSync() {
-  client.emit('dashboard:commandLogs');
-}
+function emitDashboardSync() { client.emit('dashboard:sync'); }
+function emitCommandLogsSync() { client.emit('dashboard:commandLogs'); }
 
 loadCommands(commandsPath);
 
@@ -137,7 +118,6 @@ for (const filePath of commandFiles) {
       slashCommands.push(command.data.toJSON());
       continue;
     }
-
     console.warn(`[commands] Skipped invalid command module: ${filePath}`);
   } catch (error) {
     console.error(`[commands] Failed to load ${filePath}:`, error);
@@ -154,10 +134,7 @@ player.extractors.register(YoutubeiExtractor, {
   useYoutubeDL: true,
   logLevel: 'NONE',
   cookie: process.env.YT_COOKIE || undefined,
-  streamOptions: {
-    useClient: 'ANDROID',
-    highWaterMark: 1 << 25
-  }
+  streamOptions: { useClient: 'ANDROID', highWaterMark: 1 << 25 }
 });
 
 async function initializeExtractors() {
@@ -165,7 +142,6 @@ async function initializeExtractors() {
   const extractors = DefaultExtractors.filter(
     (Extractor) => Extractor.identifier !== 'com.discord-player.soundcloudextractor'
   );
-
   if (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) {
     extractorOptions['com.discord-player.spotifyextractor'] = {
       clientId: process.env.SPOTIFY_CLIENT_ID,
@@ -173,22 +149,10 @@ async function initializeExtractors() {
       bridgeSearch: true
     };
   }
-
   await player.extractors.loadMulti(extractors, extractorOptions);
 }
 
 player.events.on('playerStart', (queue, track) => {
-  debugAudioLog(
-    'event:playerStart',
-    `guild=${queue?.guild?.id || 'n/a'}`,
-    `voice=${queue?.channel?.id || 'n/a'}`,
-    `queueSize=${Number(queue?.size || 0)}`,
-    `isPlaying=${Boolean(queue?.isPlaying?.())}`,
-    `title=${track?.title || 'n/a'}`,
-    `duration=${track?.duration || 'n/a'}`,
-    `url=${track?.url || 'n/a'}`
-  );
-
   const announceKey = track.url || `${track.title}|${track.author}`;
   const last = client.lastAnnouncedTrackByGuild.get(queue.guild.id);
   const isDuplicateStart = last && last.key === announceKey && Date.now() - last.at < 45000;
@@ -209,62 +173,28 @@ player.events.on('playerStart', (queue, track) => {
     requestedBy: track.requestedBy?.username || track.requestedBy?.tag || 'Unknown',
     startedAt: Date.now()
   };
-
   emitDashboardSync();
 });
 
-player.events.on('playerFinish', () => {
-  debugAudioLog('event:playerFinish');
-  client.currentTrack = null;
-  emitDashboardSync();
-});
-
-player.events.on('audioTrackAdd', () => {
-  emitDashboardSync();
-});
-
-player.events.on('audioTracksAdd', () => {
-  emitDashboardSync();
-});
-
-player.events.on('audioTrackRemove', () => {
-  emitDashboardSync();
-});
-
-player.events.on('audioTracksRemove', () => {
-  emitDashboardSync();
-});
+player.events.on('playerFinish', () => { client.currentTrack = null; emitDashboardSync(); });
+player.events.on('audioTrackAdd', () => { emitDashboardSync(); });
+player.events.on('audioTracksAdd', () => { emitDashboardSync(); });
+player.events.on('audioTrackRemove', () => { emitDashboardSync(); });
+player.events.on('audioTracksRemove', () => { emitDashboardSync(); });
 
 player.events.on('emptyQueue', (queue) => {
-  debugAudioLog(
-    'event:emptyQueue',
-    `guild=${queue?.guild?.id || 'n/a'}`,
-    `voice=${queue?.channel?.id || 'n/a'}`,
-    `size=${Number(queue?.size || 0)}`
-  );
-  if (client.pendingStreamFallbacks > 0) {
-    return;
-  }
+  if (client.pendingStreamFallbacks > 0) return;
 
   if (queue?.guild?.id && hasIdlePending(client, queue.guild.id)) {
-    const voiceChannel =
-      queue.channel ||
-      queue.guild?.members?.me?.voice?.channel ||
-      null;
+    const voiceChannel = queue.channel || queue.guild?.members?.me?.voice?.channel || null;
     const textChannel = queue.metadata?.channel || null;
     if (voiceChannel) {
       setTimeout(async () => {
-        try {
-          await startNextPendingTrack(client, queue.guild, voiceChannel, textChannel);
-          emitDashboardSync();
-        } catch (error) {
-          console.error('Pending-next failed:', error?.message || error);
-        }
+        try { await startNextPendingTrack(client, queue.guild, voiceChannel, textChannel); emitDashboardSync(); }
+        catch (error) { console.error('Pending-next failed:', error?.message || error); }
       }, 120);
       return;
     }
-
-    console.warn(`Pending queue exists for guild ${queue.guild.id} but no voice channel could be resolved.`);
     queue.metadata?.channel?.send('Pending queue exists but I lost the voice channel. Rejoin a voice channel and run `/play` again.');
     return;
   }
@@ -274,11 +204,8 @@ player.events.on('emptyQueue', (queue) => {
     const textChannel = queue.metadata?.channel || null;
     if (voiceChannel) {
       setTimeout(async () => {
-        try {
-          await startIdleLive(client, queue.guild, voiceChannel, textChannel, client.user);
-        } catch (error) {
-          console.error('Auto-idle restart failed:', error?.message || error);
-        }
+        try { await startIdleLive(client, queue.guild, voiceChannel, textChannel, client.user); }
+        catch (error) { console.error('Auto-idle restart failed:', error?.message || error); }
       }, 1000);
       return;
     }
@@ -290,47 +217,18 @@ player.events.on('emptyQueue', (queue) => {
 });
 
 player.events.on('error', (_, error) => {
-  const isAbortError =
-    error?.name === 'AbortError' ||
-    /operation was aborted/i.test(error?.message || '');
-  if (isAbortError) {
-    debugAudioLog('event:error:ignored-abort', error?.message || 'AbortError');
-    return;
-  }
-
+  if (error?.name === 'AbortError' || /operation was aborted/i.test(error?.message || '')) return;
   console.error(`Player error: ${error.message}`);
-  debugAudioLog('event:error', error?.stack || error?.message || String(error));
 });
 
 player.events.on('playerError', async (queue, error, track) => {
-  const isAbortError =
-    error?.name === 'AbortError' ||
-    /operation was aborted/i.test(error?.message || '');
-  if (isAbortError) {
-    debugAudioLog(
-      'event:playerError:ignored-abort',
-      `guild=${queue?.guild?.id || 'n/a'}`,
-      `track=${track?.title || 'n/a'}`
-    );
-    return;
-  }
+  if (error?.name === 'AbortError' || /operation was aborted/i.test(error?.message || '')) return;
 
   console.error(`Player error: ${error.message}`);
-  debugAudioLog(
-    'event:playerError',
-    `guild=${queue?.guild?.id || 'n/a'}`,
-    `voice=${queue?.channel?.id || 'n/a'}`,
-    `track=${track?.title || 'n/a'}`,
-    `trackUrl=${track?.url || 'n/a'}`,
-    `message=${error?.message || 'n/a'}`
-  );
-
   const isStreamExtractError = /extract stream/i.test(error.message || '');
-  if (!isStreamExtractError) {
-    queue.metadata?.channel?.send(`Error: ${error.message}`);
-  }
-
+  if (!isStreamExtractError) queue.metadata?.channel?.send(`Error: ${error.message}`);
   if (!track || !queue?.channel) return;
+  if (isIdleLiveActive(client, queue?.guild?.id)) return;
 
   const fallbackKey = track.url || `${track.title}|${track.author}`;
   if (client.trackFallbackAttempts.has(fallbackKey)) return;
@@ -342,19 +240,11 @@ player.events.on('playerError', async (queue, error, track) => {
   try {
     client.pendingStreamFallbacks += 1;
     queue.metadata?.channel?.send('Stream source failed. Trying fallback...');
-
     const { track: fallbackTrack } = await client.player.play(queue.channel, fallbackQuery, {
       requestedBy: track.requestedBy || null,
       searchEngine: QueryType.YOUTUBE_SEARCH,
-      nodeOptions: {
-        metadata: queue.metadata,
-        leaveOnEnd: true,
-        leaveOnEndCooldown: 300000,
-        leaveOnStop: true,
-        leaveOnStopCooldown: 120000
-      }
+      nodeOptions: { metadata: queue.metadata, leaveOnEnd: true, leaveOnEndCooldown: 300000, leaveOnStop: true, leaveOnStopCooldown: 120000 }
     });
-
     queue.metadata?.channel?.send(`Fallback stream: **${fallbackTrack.title}**`);
   } catch (fallbackError) {
     console.error('Fallback playback failed:', fallbackError.message || fallbackError);
@@ -367,7 +257,6 @@ player.events.on('playerError', async (queue, error, track) => {
 
 client.once('clientReady', async () => {
   console.log(`Logged in as ${client.user.tag}`);
-
   database.db.prepare('UPDATE bot_stats SET value = ? WHERE key = ?').run(Date.now().toString(), 'start_time');
 
   for (const guild of client.guilds.cache.values()) {
@@ -385,26 +274,20 @@ client.once('clientReady', async () => {
     const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
     try {
       console.log('Registering slash commands...');
-      // Remove legacy global commands to avoid duplicate command entries in Discord UI.
-      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
 
       const explicitGuildId = process.env.GUILD_ID;
-      if (explicitGuildId) {
-        await rest.put(
-          Routes.applicationGuildCommands(process.env.CLIENT_ID, explicitGuildId),
-          { body: slashCommands }
-        );
-        console.log(`Registered ${slashCommands.length} guild commands for ${explicitGuildId}.`);
-      } else {
-        const guildIds = [...client.guilds.cache.keys()];
-        for (const guildId of guildIds) {
-          await rest.put(
-            Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId),
-            { body: slashCommands }
-          );
-        }
-        console.log(`Registered ${slashCommands.length} commands in ${guildIds.length} guild(s).`);
-      }
+      const targetGuildIds = explicitGuildId
+        ? [explicitGuildId]
+        : [...client.guilds.cache.keys()];
+
+      // PUT directly overwrites existing commands — no need to clear first
+      await Promise.all(
+        targetGuildIds.map((guildId) =>
+          rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, guildId), { body: slashCommands })
+        )
+      );
+
+      console.log(`Registered ${slashCommands.length} commands in ${targetGuildIds.length} guild(s).`);
     } catch (error) {
       console.error('Error registering commands:', error);
     }
@@ -425,7 +308,6 @@ client.once('clientReady', async () => {
 
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
-
   const command = client.commands.get(interaction.commandName);
   if (!command) return;
 
@@ -436,50 +318,31 @@ client.on('interactionCreate', async (interaction) => {
       database.hasAuthorizedEntriesForCommand(interaction.guildId, interaction.commandName) &&
       !isCommandAuthorized(interaction, database, interaction.commandName)
     ) {
-      await interaction.reply({
-        content: `You are not authorized to use \`/${interaction.commandName}\`.`,
-        flags: MessageFlags.Ephemeral
-      });
+      await interaction.reply({ content: `You are not authorized to use \`/${interaction.commandName}\`.`, flags: MessageFlags.Ephemeral });
       return;
     }
 
     database.logCommand(interaction.commandName, interaction.user, interaction.guild, interaction.channelId);
     emitCommandLogsSync();
-
     await command.execute(interaction, client, database);
     emitDashboardSync();
   } catch (error) {
     console.error(`Error executing ${interaction.commandName}:`, error);
     const reply = { content: 'An error occurred while executing this command.', flags: MessageFlags.Ephemeral };
     try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp(reply);
-        return;
-      }
-
+      if (interaction.replied || interaction.deferred) { await interaction.followUp(reply); return; }
       await interaction.reply(reply);
     } catch (responseError) {
       const code = responseError?.code;
-      if (code !== 40060 && code !== 10062) {
-        console.error('Failed to send interaction error response:', responseError);
-      }
+      if (code !== 40060 && code !== 10062) console.error('Failed to send interaction error response:', responseError);
     }
   }
 });
 
 client.on('messageCreate', async (message) => {
   try {
-    const handled = await handlePrefixMessage(
-      message,
-      client,
-      database,
-      emitCommandLogsSync,
-      emitDashboardSync
-    );
-
-    if (handled) {
-      emitDashboardSync();
-    }
+    const handled = await handlePrefixMessage(message, client, database, emitCommandLogsSync, emitDashboardSync);
+    if (handled) emitDashboardSync();
   } catch (error) {
     console.error('prefix message handler error:', error);
   }
@@ -500,19 +363,12 @@ client.on('guildMemberAdd', async (member) => {
   try {
     const cachedInvites = client.inviteCache.get(member.guild.id);
     const newInvites = await member.guild.invites.fetch();
-
-    const usedInvite = newInvites.find((inv) => {
-      const oldUses = cachedInvites?.get(inv.code) || 0;
-      return inv.uses > oldUses;
-    });
-
+    const usedInvite = newInvites.find((inv) => inv.uses > (cachedInvites?.get(inv.code) || 0));
     client.inviteCache.set(member.guild.id, new Collection(newInvites.map((inv) => [inv.code, inv.uses])));
-
     if (usedInvite && usedInvite.inviter) {
       const totalInvites = newInvites
         .filter((inv) => inv.inviter?.id === usedInvite.inviter.id)
         .reduce((acc, inv) => acc + inv.uses, 0);
-
       database.logInvite(usedInvite.inviter, member.user, usedInvite.code, member.guild, totalInvites);
     }
   } catch (error) {
@@ -526,9 +382,7 @@ client.on('guildMemberRemove', () => emitDashboardSync());
 client.on('guildCreate', () => emitDashboardSync());
 client.on('guildDelete', () => emitDashboardSync());
 
-if (!DISCORD_TOKEN) {
-  throw new Error('Missing DISCORD_TOKEN (or DISCORD_BOT_TOKEN) in .env');
-}
+if (!DISCORD_TOKEN) throw new Error('Missing DISCORD_TOKEN (or DISCORD_BOT_TOKEN) in .env');
 
 async function bootstrap() {
   console.log(`Prefix commands enabled with prefix: ${PREFIX}`);
@@ -540,6 +394,3 @@ bootstrap().catch((error) => {
   console.error('Failed to start bot:', error);
   process.exit(1);
 });
-
-
-

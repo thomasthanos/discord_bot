@@ -87,9 +87,11 @@ module.exports = {
       VALUES (?, ?, ?, ?, ?, ?)`).run(
       command, user.id, user.tag || user.username, guild?.id || null, guild?.name || null, channelId || null
     );
-    const current = db.prepare('SELECT value FROM bot_stats WHERE key = ?').get('total_commands');
-    const newVal = (parseInt(current?.value || '0') + 1).toString();
-    db.prepare('UPDATE bot_stats SET value = ? WHERE key = ?').run(newVal, 'total_commands');
+    // Bug fix: use a single atomic SQL expression to avoid race condition
+    // when two commands execute concurrently and both read the same count.
+    db.prepare(
+      "UPDATE bot_stats SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'total_commands'"
+    ).run();
   },
 
   logClear(moderator, channel, guild, messages) {
@@ -217,10 +219,6 @@ module.exports = {
     `).all(guildId, limit);
   },
 
-  getSongsPlayed() {
-    return db.prepare('SELECT * FROM songs_played ORDER BY timestamp DESC LIMIT 50').all();
-  },
-
   addAuthorizedUser(guildId, commandName, user, addedBy) {
     db.prepare(`
       INSERT INTO command_authorized_users (guild_id, command_name, user_id, added_by_id, added_by_tag)
@@ -254,16 +252,6 @@ module.exports = {
       LIMIT 1
     `).get(guildId, commandName.toLowerCase(), userId);
     return Boolean(row);
-  },
-
-  getAuthorizedUsers(guildId, commandName) {
-    return db.prepare(`
-      SELECT user_id, added_by_id, added_by_tag, timestamp
-      FROM command_authorized_users
-      WHERE guild_id = ? AND command_name = ?
-      ORDER BY timestamp DESC
-      LIMIT 100
-    `).all(guildId, commandName.toLowerCase());
   },
 
   hasAuthorizedEntriesForCommand(guildId, commandName) {

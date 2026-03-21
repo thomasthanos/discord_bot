@@ -55,7 +55,7 @@ module.exports = {
       if (existingQueue && (!existingQueue.connection || existingQueue.channel?.id !== voiceChannel.id)) {
         try {
           await existingQueue.connect(voiceChannel);
-        } catch (connectError) {
+        } catch {
           await interaction.editReply('Could not move to your voice channel.');
           return;
         }

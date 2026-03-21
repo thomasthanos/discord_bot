@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const path = require('path');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
@@ -62,7 +62,7 @@ function buildConfig(client) {
   const dashboardPort = client.dashboardInfo?.port || Number(process.env.PORT || 3000);
 
   return {
-    prefix: process.env.COMMAND_PREFIX || '/',
+    prefix: process.env.COMMAND_PREFIX || '!',
     musicEngine: `discord-player v${discordPlayerVersion}`,
     spotifySupport: spotifyEnabled ? 'Active' : 'Missing Credentials',
     inviteTracking: (hasInviteIntent && hasMembersIntent) ? 'Active' : 'Disabled (Intents)',
@@ -182,12 +182,13 @@ function buildCombinedUpcomingList(client, guildId, queueList) {
   const base = Array.isArray(queueList) ? queueList : [];
   if (!guildId || !hasIdlePending(client, guildId)) return base;
 
-  const seen = new Set(
-    base.map((item) => {
-      const urlKey = String(item?.url || '').trim();
-      if (urlKey) return `url:${urlKey}`;
-      return `meta:${String(item?.title || '').trim().toLowerCase()}|${String(item?.author || '').trim().toLowerCase()}`;
-    })
+  // Bug fix: pending items are always distinct queue entries (they have no URL yet).
+  // Only deduplicate against queue items that have a real URL — never filter
+  // pending items against each other, since the same song can be queued twice.
+  const seenUrls = new Set(
+    base
+      .map((item) => String(item?.url || '').trim())
+      .filter(Boolean)
   );
 
   const pending = buildIdlePendingList(client, guildId).map((item, index) => ({
@@ -196,11 +197,7 @@ function buildCombinedUpcomingList(client, guildId, queueList) {
     author: `${item.author || 'Pending'} (pending)`
   })).filter((item) => {
     const urlKey = String(item?.url || '').trim();
-    const key = urlKey
-      ? `url:${urlKey}`
-      : `meta:${String(item?.title || '').trim().toLowerCase()}|${String(item?.author || '').trim().toLowerCase()}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    if (urlKey && seenUrls.has(urlKey)) return false;
     return true;
   });
 
@@ -668,4 +665,3 @@ async function startDashboard(client, database) {
 }
 
 module.exports = startDashboard;
-

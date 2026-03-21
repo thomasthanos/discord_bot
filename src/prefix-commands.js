@@ -1,4 +1,4 @@
-﻿const { QueryType } = require('discord-player');
+const { QueryType } = require('discord-player');
 const { canManageAuthorization, isCommandAuthorized } = require('./utils/authorization');
 const { startIdleLive, stopIdleLive, isIdleLiveActive } = require('./idle-live');
 const { enqueueIdlePending, getIdlePendingCount, clearIdlePending } = require('./idle-pending');
@@ -18,17 +18,15 @@ function getCommandNameFromAlias(rawAlias) {
   if (!alias) return null;
 
   const aliasMap = new Map([
-    [['play', 'p', 'Ï€', 'Ï€Î±Î¹Î¾Îµ', 'paikse'], 'play'],
-    [['stop', 'stp', 'x', 'stopmusic', 'stopsong'], 'stop'],
-    [['idlemusic', 'idle', 'im', 'Ï‡Î±Î»Î±ÏÎ¿', 'iremia'], 'idlemusic'],
-    [['volume', 'vol', 'v', 'ÎµÎ½Ï„Î±ÏƒÎ·', 'entasi'], 'volume'],
-    [['nowplaying', 'np', 'Ï„Ï‰ÏÎ±', 'torapaizei'], 'nowplaying'],
-    [['stats', 'st', 'ÏƒÏ„Î±Ï„Ï‚', 'stat'], 'stats'],
-    [['clear', 'cl', 'ÎºÎ±Î¸Î±ÏÎ¹ÏƒÎµ', 'katharise'], 'clear'],
-    [['wipe', 'wipechannel', 'wc', 'ÏƒÎºÎ¿Ï…Ï€Î±', 'skoupa'], 'wipe-channel'],
-    [['invite', 'invites', 'invitelogger', 'il', 'Ï€ÏÎ¿ÏƒÎºÎ»Î·ÏƒÎµÎ¹Ï‚'], 'invite-logger'],
-    [['help', 'h', 'helpmenu', 'Î²Î¿Î·Î¸ÎµÎ¹Î±', 'voitheia'], 'help-menu'],
-    [['addauthorized', 'auth', 'authorize', 'ÎµÎ¾Î¿Ï…ÏƒÎ¹Î¿Î´Î¿Ï„Î·ÏƒÎ·'], 'addauthorized']
+    [['play', 'p', 'π'], 'play'],
+    [['stop', 's', 'σ'], 'stop'],
+    [['idlemusic', 'im', 'ιμ'], 'idlemusic'],
+    [['volume', 'v', 'β'], 'volume'],
+    [['clear', 'c', 'ψ'], 'clear'],
+    [['wipe', 'wc', 'ςψ'], 'wipe-channel'],
+    [['invite-logger', 'il', 'ιλ'], 'invite-logger'],
+    [['help', 'h', 'η'], 'help'],
+    [['addauthorized', 'aa', 'αα'], 'addauthorized']
   ]);
 
   for (const [aliases, commandName] of aliasMap.entries()) {
@@ -60,7 +58,7 @@ function canUseCommand(message, database, commandName) {
 async function ensureVoiceQueue(message, client) {
   const voiceChannel = message.member?.voice?.channel;
   if (!voiceChannel) {
-    await message.reply('ÎœÏ€ÎµÏ‚ Ï€ÏÏŽÏ„Î± ÏƒÎµ voice channel.');
+    await message.reply('Join a voice channel first.');
     return null;
   }
 
@@ -121,7 +119,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
   if (!commandName) return false;
 
   if (!canUseCommand(message, database, commandName)) {
-    await message.reply(`Î”ÎµÎ½ ÎµÎ¯ÏƒÎ±Î¹ ÎµÎ¾Î¿Ï…ÏƒÎ¹Î¿Î´Î¿Ï„Î·Î¼Î­Î½Î¿Ï‚ Î³Î¹Î± \`!${rawAlias}\`.`);
+    await message.reply(`You are not authorized to use \`!${rawAlias}\`.`);
     return true;
   }
 
@@ -131,7 +129,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
   try {
     if (commandName === 'play') {
       if (!argsText) {
-        await message.reply('Usage: `!play <query>` Î® `!p <query>`');
+        await message.reply('Usage: `!play <query>` or `!p`');
         return true;
       }
 
@@ -144,7 +142,6 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
         if (mapped) effectiveQuery = mapped;
       }
 
-      // Switch to normal playback mode when user explicitly uses !play.
       client.autoIdleGuilds?.delete(message.guild.id);
 
       if (isIdleLiveActive(client, message.guild.id)) {
@@ -192,7 +189,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
           });
           await message.reply(`Now playing (fallback): **${track.title}**`);
         } catch {
-          await message.reply('Î”ÎµÎ½ Î¼Ï€ÏŒÏÎµÏƒÎ± Î½Î± Ï€Î±Î¯Î¾Ï‰ Î±Ï…Ï„ÏŒ Ï„Î¿ query.');
+          await message.reply('Could not play that query.');
         }
       }
 
@@ -223,9 +220,9 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
       }
 
       const hasActivePlayback =
-        Boolean(queue.currentTrack) ||
-        Boolean(queue.isPlaying?.()) ||
-        Number(queue.size || 0) > 0;
+        Boolean(queue?.currentTrack) ||
+        Boolean(queue?.isPlaying?.()) ||
+        Number(queue?.size || 0) > 0;
       if (hasActivePlayback) {
         await message.reply('Queue is active. Use `/stop` first, then run `!idlemusic`.');
         return true;
@@ -249,19 +246,20 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
       const guildId = message.guild.id;
       const queue = client.player?.nodes?.get(guildId) || null;
       const idleActive = isIdleLiveActive(client, guildId);
+
+      // Nothing to stop
+      if (!queue && !idleActive && !client.currentTrack) {
+        await message.reply('Nothing is playing right now.');
+        return true;
+      }
+
       const pendingCleared = clearIdlePending(client, guildId);
       client.autoIdleGuilds?.delete(guildId);
 
       if (queue) {
-        try {
-          queue.clear();
-        } catch {}
-        try {
-          queue.node.stop();
-        } catch {}
-        try {
-          queue.delete();
-        } catch {}
+        try { queue.clear(); } catch {}
+        try { queue.node.stop(); } catch {}
+        try { queue.delete(); } catch {}
       }
 
       if (idleActive) {
@@ -279,7 +277,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
     if (commandName === 'volume') {
       const queue = client.player?.nodes?.get(message.guild.id);
       if (!queue || (!queue.currentTrack && !queue.isPlaying())) {
-        await message.reply('Î”ÎµÎ½ Ï…Ï€Î¬ÏÏ‡ÎµÎ¹ ÎµÎ½ÎµÏÎ³Î® Î¼Î¿Ï…ÏƒÎ¹ÎºÎ® Î¿Ï…ÏÎ¬.');
+        await message.reply('No active music queue in this server.');
         return true;
       }
 
@@ -290,84 +288,70 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
 
       const level = Number.parseInt(argsText, 10);
       if (!Number.isInteger(level) || level < 0 || level > 100) {
-        await message.reply('Usage: `!volume <0-100>`');
+        await message.reply('Usage: `!v <0-100>`');
         return true;
       }
 
       const changed = queue.node.setVolume(level);
-      await message.reply(changed ? `Volume set: **${level}%**` : 'Î”ÎµÎ½ Î¬Î»Î»Î±Î¾Îµ Ï„Î¿ volume.');
+      await message.reply(changed ? `Volume set: **${level}%**` : 'Volume did not change.');
       emitDashboardSync();
       return true;
     }
 
-    if (commandName === 'help-menu') {
-      await message.reply([
-        '**Prefix Commands**',
-        '`!play <query>` (`!p`, `!Ï€`, `!Ï€Î±Î¹Î¾Îµ`)',
-        '`!stop` (`!stp`, `!x`)',
-        '`!idlemusic` (`!idle`, `!im`)',
-        '`!volume [0-100]` (`!v`, `!ÎµÎ½Ï„Î±ÏƒÎ·`)',
-        '`!nowplaying` (`!np`)',
-        '`!stats` (`!st`)',
-        '`!clear <amount>` (`!cl`)',
-        '`!wipe` (`!wc`)',
-        '`!invite` (`!il`)'
-      ].join('\n'));
-      return true;
-    }
-
-    if (commandName === 'nowplaying') {
-      const track = client.currentTrack;
-      if (!track || track.guildId !== message.guild.id) {
-        await message.reply('Î¤ÏŽÏÎ± Î´ÎµÎ½ Ï€Î±Î¯Î¶ÎµÎ¹ ÎºÎ¬Ï„Î¹ ÏƒÎµ Î±Ï…Ï„ÏŒ Ï„Î¿ server.');
-      } else {
-        await message.reply(`Now playing: **${track.title}** - **${track.author}**`);
+    if (commandName === 'help') {
+      const helpCmd = client.commands.get('help');
+      if (helpCmd) {
+        const pseudoInteraction = {
+          inGuild: () => Boolean(message.guild),
+          user: message.author,
+          guild: message.guild,
+          guildId: message.guild?.id || null,
+          channel: message.channel,
+          replied: false,
+          deferred: false,
+          reply: (payload) => message.reply(payload)
+        };
+        await helpCmd.execute(pseudoInteraction, client);
       }
-      return true;
-    }
-
-    if (commandName === 'stats') {
-      const stats = database.getStats();
-      const users = client.guilds.cache.reduce((acc, guild) => acc + guild.memberCount, 0);
-      await message.reply([
-        `Servers: ${client.guilds.cache.size}`,
-        `Users: ${users}`,
-        `Commands used: ${stats.totalCommands}`,
-        `Songs played: ${stats.songsPlayed}`,
-        `Messages cleared: ${stats.totalCleared}`
-      ].join('\n'));
       return true;
     }
 
     if (commandName === 'clear') {
       const amount = Number.parseInt(rawArgs[0], 10);
       if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
-        await message.reply('Usage: `!clear <1-100>`');
+        await message.reply('Usage: `!c <1-100>`');
         return true;
       }
       const clearCmd = client.commands.get('clear');
       if (!clearCmd) {
-        await message.reply('Î¤Î¿ command clear Î´ÎµÎ½ Î²ÏÎ­Î¸Î·ÎºÎµ.');
+        await message.reply('The clear command module was not found.');
         return true;
       }
-      await message.reply('Î§ÏÎ·ÏƒÎ¹Î¼Î¿Ï€Î¿Î¯Î·ÏƒÎµ `/clear` Î³Î¹Î± Ï€Î»Î®ÏÎ· transcript logging.');
+      await message.reply('Use `/clear` for full transcript logging.');
       return true;
     }
 
     if (commandName === 'wipe-channel') {
-      await message.reply('Î§ÏÎ·ÏƒÎ¹Î¼Î¿Ï€Î¿Î¯Î·ÏƒÎµ `/wipe-channel` (Î­Ï‡ÎµÎ¹ confirm buttons Î³Î¹Î± Î±ÏƒÏ†Î¬Î»ÎµÎ¹Î±).');
+      await message.reply('Use `/wipe-channel` (includes confirmation buttons).');
       return true;
     }
 
     if (commandName === 'invite-logger') {
-      const guildId = message.guild.id;
-      const recent = database.getInviteLogsByGuild(guildId, 5);
-      if (!recent.length) {
-        await message.reply('Î”ÎµÎ½ Ï…Ï€Î¬ÏÏ‡Î¿Ï…Î½ invite logs Î±ÎºÏŒÎ¼Î±.');
-        return true;
+      const inviteCmd = client.commands.get('invite-logger');
+      if (inviteCmd) {
+        const pseudoInteraction = {
+          inGuild: () => Boolean(message.guild),
+          user: message.author,
+          guild: message.guild,
+          guildId: message.guild?.id || null,
+          channel: message.channel,
+          replied: false,
+          deferred: false,
+          options: { getInteger: () => null },
+          reply: (payload) => message.reply(payload)
+        };
+        await inviteCmd.execute(pseudoInteraction, client, database);
       }
-      const lines = recent.map((row) => `- ${row.inviter_tag} -> ${row.invited_tag} (${row.invite_code || 'N/A'})`);
-      await message.reply(['**Invite Logs**', ...lines].join('\n'));
       return true;
     }
 
@@ -377,7 +361,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
         guild: message.guild
       };
       if (!canManageAuthorization(pseudoInteraction)) {
-        await message.reply('ÎœÏŒÎ½Î¿ Î¿ owner Ï„Î¿Ï… server Î¼Ï€Î¿ÏÎµÎ¯ Î½Î± ÎºÎ¬Î½ÎµÎ¹ authorize.');
+        await message.reply('Only the server owner can manage authorization.');
         return true;
       }
 
@@ -386,29 +370,29 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
       const mode = (rawArgs[2] || 'add').toLowerCase();
 
       if (!targetCommand || !targetUserId || !['add', 'remove'].includes(mode)) {
-        await message.reply('Usage: `!addauthorized <command> <@user|userId> [add|remove]`');
+        await message.reply('Usage: `!aa <command> <@user|userId> [add|remove]`');
         return true;
       }
 
       const user = await client.users.fetch(targetUserId).catch(() => null);
       if (!user) {
-        await message.reply('Î”ÎµÎ½ Î²ÏÎ­Î¸Î·ÎºÎµ Î¿ user.');
+        await message.reply('User not found.');
         return true;
       }
 
       if (!client.commands.has(targetCommand)) {
-        await message.reply(`Î”ÎµÎ½ Ï…Ï€Î¬ÏÏ‡ÎµÎ¹ Ï„Î¿ command \`${targetCommand}\`.`);
+        await message.reply(`Command \`${targetCommand}\` does not exist.`);
         return true;
       }
 
       if (mode === 'remove') {
         const removed = database.removeAuthorizedUser(message.guild.id, targetCommand, user.id);
         await message.reply(removed
-          ? `Î‘Ï†Î±Î¹ÏÎ­Î¸Î·ÎºÎµ authorize Î³Î¹Î± <@${user.id}> ÏƒÏ„Î¿ \`/${targetCommand}\`.`
-          : `<@${user.id}> Î´ÎµÎ½ ÎµÎ¯Ï‡Îµ authorize ÏƒÏ„Î¿ \`/${targetCommand}\`.`);
+          ? `Removed authorization for <@${user.id}> on \`/${targetCommand}\`.`
+          : `<@${user.id}> was not authorized for \`/${targetCommand}\`.`);
       } else {
         database.addAuthorizedUser(message.guild.id, targetCommand, user, message.author);
-        await message.reply(`Authorize: <@${user.id}> ÏƒÏ„Î¿ \`/${targetCommand}\`.`);
+        await message.reply(`Authorized <@${user.id}> for \`/${targetCommand}\`.`);
       }
 
       return true;
@@ -417,7 +401,7 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
     return false;
   } catch (error) {
     console.error('prefix command error:', error);
-    await message.reply('ÎˆÎ³Î¹Î½Îµ ÏƒÏ†Î¬Î»Î¼Î± ÏƒÏ„Î¿ prefix command.');
+    await message.reply('Prefix command failed.');
     return true;
   }
 }
@@ -426,7 +410,3 @@ module.exports = {
   PREFIX,
   handlePrefixMessage
 };
-
-
-
-

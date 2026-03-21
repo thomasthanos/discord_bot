@@ -42,4 +42,3 @@ module.exports = {
     await interaction.reply(`Volume set to **${level}%**`);
   }
 };
-
