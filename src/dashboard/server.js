@@ -433,6 +433,20 @@ async function startDashboard(client, database) {
             res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
             return;
           }
+          if (action === 'reorder') {
+            const from = Number(req.body?.from);
+            const to = Number(req.body?.to);
+            if (!Number.isFinite(from) || !Number.isFinite(to)) throw new Error('Invalid reorder indices.');
+            const pendingMap = client.idlePendingByGuild;
+            const pendingList = pendingMap?.get(selectedGuildId);
+            if (!pendingList || !Array.isArray(pendingList)) throw new Error('No pending queue to reorder.');
+            if (from < 0 || from >= pendingList.length || to < 0 || to >= pendingList.length) throw new Error('Index out of range.');
+            const [moved] = pendingList.splice(from, 1);
+            pendingList.splice(to, 0, moved);
+            client.emit('dashboard:sync');
+            res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
+            return;
+          }
         }
         res.status(404).json({ ok: false, message: 'No active queue.' });
         return;
@@ -458,6 +472,23 @@ async function startDashboard(client, database) {
           const safeVol = Math.max(0, Math.min(100, Math.round(rawValue)));
           database.setGuildVolume(selectedGuildId, safeVol);
           queue.node.setVolume(safeVol);
+          break;
+        }
+        case 'reorder': {
+          const from = Number(req.body?.from);
+          const to = Number(req.body?.to);
+          if (!Number.isFinite(from) || !Number.isFinite(to)) throw new Error('Invalid reorder indices.');
+          // discord-player v7: queue.tracks is a TrackCollection with .data array
+          const trackStore = queue.tracks?.data || queue.tracks?.store || null;
+          if (trackStore && Array.isArray(trackStore)) {
+            if (from < 0 || from >= trackStore.length || to < 0 || to >= trackStore.length) throw new Error('Index out of range.');
+            const [moved] = trackStore.splice(from, 1);
+            trackStore.splice(to, 0, moved);
+          } else if (typeof queue.moveTrack === 'function') {
+            queue.moveTrack(from, to);
+          } else {
+            throw new Error('Queue reorder not supported.');
+          }
           break;
         }
         default:

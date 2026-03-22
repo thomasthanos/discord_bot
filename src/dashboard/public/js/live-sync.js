@@ -172,52 +172,31 @@
   }
 
   function updateProgress(track, state) {
-    const fill = document.getElementById('npProgressFill');
-    const elapsedEl = document.getElementById('npElapsed');
-    const totalEl = document.getElementById('npTotal');
     const barFill = document.getElementById('npBarProgressFill');
     const barElapsedEl = document.getElementById('npBarElapsed');
     const barTotalEl = document.getElementById('npBarTotal');
 
-    const hasDetailsProgress = fill && elapsedEl && totalEl;
     const hasBarProgress = barFill && barElapsedEl && barTotalEl;
-    if (!hasDetailsProgress && !hasBarProgress) return;
+    if (!hasBarProgress) return;
 
     const progress = state?.progress || null;
     if (!progress) {
-      if (hasDetailsProgress) {
-        fill.style.width = '0%';
-        elapsedEl.textContent = '0:00';
-        totalEl.textContent = track?.duration || '--:--';
-      }
-      if (hasBarProgress) {
-        barFill.style.width = '0%';
-        barElapsedEl.textContent = '0:00';
-        barTotalEl.textContent = track?.duration || '--:--';
-      }
+      barFill.style.width = '0%';
+      barElapsedEl.textContent = '0:00';
+      barTotalEl.textContent = track?.duration || '--:--';
       return;
     }
 
     const percent = Number.isFinite(progress.percent) ? Math.max(0, Math.min(100, progress.percent)) : 0;
-    if (hasDetailsProgress) {
-      fill.style.width = `${percent}%`;
-    }
-    if (hasBarProgress) {
-      barFill.style.width = `${percent}%`;
-    }
+    barFill.style.width = `${percent}%`;
 
     if (progress.currentLabel) {
-      if (hasDetailsProgress) elapsedEl.textContent = progress.currentLabel;
-      if (hasBarProgress) barElapsedEl.textContent = progress.currentLabel;
+      barElapsedEl.textContent = progress.currentLabel;
     } else {
-      const fallbackElapsed = formatTime(Number(progress.currentValue || 0) / 1000);
-      if (hasDetailsProgress) elapsedEl.textContent = fallbackElapsed;
-      if (hasBarProgress) barElapsedEl.textContent = fallbackElapsed;
+      barElapsedEl.textContent = formatTime(Number(progress.currentValue || 0) / 1000);
     }
 
-    const totalLabel = progress.totalLabel || track?.duration || '--:--';
-    if (hasDetailsProgress) totalEl.textContent = totalLabel;
-    if (hasBarProgress) barTotalEl.textContent = totalLabel;
+    barTotalEl.textContent = progress.totalLabel || track?.duration || '--:--';
   }
 
   function updateNowPlaying(track, state) {
@@ -337,34 +316,100 @@
     const total = state?.progress?.totalLabel || track.duration || '--:--';
     metaEl.textContent = `${author} - ${current} / ${total}`;
   }
-  function renderPanelTrackList(containerId, tracks, emptyText) {
+  // Track list fingerprints for smart diffing — skip re-render when data hasn't changed
+  const listFingerprints = {};
+
+  function trackListFingerprint(tracks) {
+    if (!Array.isArray(tracks) || tracks.length === 0) return '';
+    return tracks.map((t) => `${t.title || ''}|${t.author || ''}|${t.duration || ''}|${t.thumbnail || ''}`).join(';;');
+  }
+
+  function buildTrackItemHtml(track, index, isDraggable) {
+    const title = escapeHtml(track.title || 'Unknown title');
+    const author = escapeHtml(track.author || 'Unknown artist');
+    const duration = escapeHtml(track.duration || '--:--');
+    const thumbnail = track.thumbnail ? escapeHtml(track.thumbnail) : '';
+    const thumbHtml = thumbnail
+      ? `<img class="music-item-thumb" src="${thumbnail}" alt="${title} cover" loading="lazy">`
+      : '<div class="music-item-thumb music-item-thumb-fallback"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg></div>';
+    const dragAttr = isDraggable ? `draggable="true" data-queue-index="${index}"` : '';
+    const dragHandle = isDraggable
+      ? '<div class="music-item-drag"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg></div>'
+      : '';
+    return [
+      `<div class="music-item" ${dragAttr}>`,
+      `  ${dragHandle}`,
+      `  ${thumbHtml}`,
+      '  <div class="music-item-main">',
+      `    <div class="music-item-title">${title}</div>`,
+      `    <div class="music-item-meta">${author}</div>`,
+      '  </div>',
+      `  <div class="music-item-duration">${duration}</div>`,
+      '</div>'
+    ].join('\n');
+  }
+
+  function renderPanelTrackList(containerId, tracks, emptyText, isDraggable) {
     const container = document.getElementById(containerId);
     if (!container) return;
+
+    const fp = trackListFingerprint(tracks);
+    // Only skip re-render if panel is NOT open or this tab is NOT active
+    const isVisible = panelOpen && (
+      (containerId === 'npPanelQueueList' && activePanelTab === 'queue') ||
+      (containerId === 'npPanelHistoryList' && activePanelTab === 'history')
+    );
+    // Always re-render if visible to ensure fresh data; diff only when hidden
+    if (!isVisible && listFingerprints[containerId] === fp) return;
+    listFingerprints[containerId] = fp;
 
     if (!Array.isArray(tracks) || tracks.length === 0) {
       container.innerHTML = `<div class="music-empty">${emptyText}</div>`;
       return;
     }
 
-    container.innerHTML = tracks.map((track) => {
-      const title = escapeHtml(track.title || 'Unknown title');
-      const author = escapeHtml(track.author || 'Unknown artist');
-      const duration = escapeHtml(track.duration || '--:--');
-      const thumbnail = track.thumbnail ? escapeHtml(track.thumbnail) : '';
-      const thumbHtml = thumbnail
-        ? `<img class="music-item-thumb" src="${thumbnail}" alt="${title} cover" loading="lazy">`
-        : '<div class="music-item-thumb music-item-thumb-fallback">?</div>';
-      return [
-        '<div class="music-item">',
-        `  ${thumbHtml}`,
-        '  <div class="music-item-main">',
-        `    <div class="music-item-title">${title}</div>`,
-        `    <div class="music-item-meta">${author}</div>`,
-        '  </div>',
-        `  <div class="music-item-duration">${duration}</div>`,
-        '</div>'
-      ].join('\n');
-    }).join('\n');
+    container.innerHTML = tracks.map((track, i) => buildTrackItemHtml(track, i, isDraggable)).join('\n');
+
+    if (isDraggable) bindQueueDragDrop(container);
+  }
+
+  // Drag and drop for queue reordering
+  let dragSourceIndex = null;
+
+  function bindQueueDragDrop(container) {
+    const items = container.querySelectorAll('.music-item[draggable]');
+    items.forEach((item) => {
+      item.addEventListener('dragstart', (e) => {
+        dragSourceIndex = parseInt(item.dataset.queueIndex, 10);
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', String(dragSourceIndex));
+      });
+      item.addEventListener('dragend', () => {
+        item.classList.remove('dragging');
+        container.querySelectorAll('.music-item').forEach((el) => el.classList.remove('drag-over'));
+        dragSourceIndex = null;
+      });
+      item.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        container.querySelectorAll('.music-item').forEach((el) => el.classList.remove('drag-over'));
+        item.classList.add('drag-over');
+      });
+      item.addEventListener('dragleave', () => {
+        item.classList.remove('drag-over');
+      });
+      item.addEventListener('drop', (e) => {
+        e.preventDefault();
+        item.classList.remove('drag-over');
+        const targetIndex = parseInt(item.dataset.queueIndex, 10);
+        if (dragSourceIndex !== null && dragSourceIndex !== targetIndex) {
+          postControl('reorder', { from: dragSourceIndex, to: targetIndex }).then((result) => {
+            if (result?.payload) applySyncPayload(result.payload);
+          }).catch((err) => showToast(err.message || 'Reorder failed.'));
+        }
+      });
+    });
   }
 
   function renderMusicLists(queueList, historyList) {
@@ -374,8 +419,8 @@
     if (queueCount) queueCount.textContent = String((queueList || []).length);
     if (historyCount) historyCount.textContent = String((historyList || []).length);
 
-    renderPanelTrackList('npPanelQueueList', queueList, 'No tracks in queue.');
-    renderPanelTrackList('npPanelHistoryList', historyList, 'No history yet.');
+    renderPanelTrackList('npPanelQueueList', queueList, 'No tracks in queue.', true);
+    renderPanelTrackList('npPanelHistoryList', historyList, 'No history yet.', false);
   }
 
   async function postControl(action, extra = {}) {
