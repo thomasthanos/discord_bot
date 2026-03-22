@@ -90,6 +90,7 @@ client.pendingStreamFallbacks = 0;
 client.lastAnnouncedTrackByGuild = new Map();
 client.autoIdleGuilds = new Set();
 client.musicEmbedByGuild = new Map();
+client.emptyQueueTimers = new Map();
 
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = [];
@@ -219,6 +220,12 @@ player.events.on('playerStart', (queue, track) => {
     }
   }
 
+  // Apply saved volume for this guild
+  const savedVol = database.getGuildVolume(queue.guild.id);
+  if (queue.node?.volume !== savedVol) {
+    try { queue.node.setVolume(savedVol); } catch {}
+  }
+
   client.currentTrack = {
     title: track.title,
     author: track.author,
@@ -253,29 +260,40 @@ player.events.on('audioTracksRemove', () => { emitDashboardSync(); });
 
 player.events.on('emptyQueue', (queue) => {
   if (client.pendingStreamFallbacks > 0) return;
+  const guildId = queue?.guild?.id;
 
-  if (queue?.guild?.id && hasIdlePending(client, queue.guild.id)) {
+  // Cancel any previous emptyQueue timer for this guild
+  if (guildId && client.emptyQueueTimers.has(guildId)) {
+    clearTimeout(client.emptyQueueTimers.get(guildId));
+    client.emptyQueueTimers.delete(guildId);
+  }
+
+  if (guildId && hasIdlePending(client, guildId)) {
     const voiceChannel = queue.channel || queue.guild?.members?.me?.voice?.channel || null;
     const textChannel = queue.metadata?.channel || null;
     if (voiceChannel) {
-      setTimeout(async () => {
+      const timer = setTimeout(async () => {
+        client.emptyQueueTimers.delete(guildId);
         try { await startNextPendingTrack(client, queue.guild, voiceChannel, textChannel); emitDashboardSync(); }
         catch (error) { console.error('Pending-next failed:', error?.message || error); }
       }, 120);
+      client.emptyQueueTimers.set(guildId, timer);
       return;
     }
     queue.metadata?.channel?.send('Pending queue exists but I lost the voice channel. Rejoin a voice channel and run `/play` again.');
     return;
   }
 
-  if (queue?.guild?.id && client.autoIdleGuilds?.has(queue.guild.id) && !isIdleLiveActive(client, queue.guild.id)) {
+  if (guildId && client.autoIdleGuilds?.has(guildId) && !isIdleLiveActive(client, guildId)) {
     const voiceChannel = queue.channel;
     const textChannel = queue.metadata?.channel || null;
     if (voiceChannel) {
-      setTimeout(async () => {
+      const timer = setTimeout(async () => {
+        client.emptyQueueTimers.delete(guildId);
         try { await startIdleLive(client, queue.guild, voiceChannel, textChannel, client.user); }
         catch (error) { console.error('Auto-idle restart failed:', error?.message || error); }
       }, 1000);
+      client.emptyQueueTimers.set(guildId, timer);
       return;
     }
   }
@@ -312,7 +330,7 @@ player.events.on('playerError', async (queue, error, track) => {
     const { track: fallbackTrack } = await client.player.play(queue.channel, fallbackQuery, {
       requestedBy: track.requestedBy || null,
       searchEngine: QueryType.YOUTUBE_SEARCH,
-      nodeOptions: { metadata: queue.metadata, leaveOnEnd: true, leaveOnEndCooldown: 300000, leaveOnStop: true, leaveOnStopCooldown: 120000 }
+      nodeOptions: { metadata: queue.metadata, leaveOnEnd: true, leaveOnEndCooldown: 300000, leaveOnStop: true, leaveOnStopCooldown: 120000, volume: database.getGuildVolume(queue.guild.id) }
     });
     queue.metadata?.channel?.send(`Fallback stream: **${fallbackTrack.title}**`);
   } catch (fallbackError) {

@@ -15,43 +15,49 @@ module.exports = {
         .setRequired(false)
     ),
 
-  async execute(interaction, client) {
+  async execute(interaction, client, database) {
     if (!interaction.guildId) {
       await interaction.reply({ content: 'This command can only be used in a server.', flags: MessageFlags.Ephemeral });
       return;
     }
 
+    const { isIdleLiveActive, setIdleLiveVolume } = require('../idle-live');
     const queue = client.player?.nodes?.get(interaction.guildId);
-    if (!queue || (!queue.currentTrack && !queue.isPlaying())) {
-      await interaction.reply({ content: 'No active music queue in this server right now.', flags: MessageFlags.Ephemeral });
+    const idleActive = isIdleLiveActive(client, interaction.guildId);
+
+    if (!queue && !idleActive) {
+      await interaction.reply({ content: 'No active music in this server right now.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     const level = interaction.options.getInteger('level', false);
     if (level === null) {
-      await interaction.reply(`Current volume: **${queue.node.volume}%**`);
+      const current = queue ? queue.node.volume : database.getGuildVolume(interaction.guildId);
+      await interaction.reply(`Current volume: **${current}%**`);
       return;
     }
 
-    const changed = queue.node.setVolume(level);
-    if (!changed) {
-      await interaction.reply({ content: 'Could not change volume right now.', flags: MessageFlags.Ephemeral });
-      return;
-    }
+    database.setGuildVolume(interaction.guildId, level);
+    if (queue) queue.node.setVolume(level);
+    if (idleActive) setIdleLiveVolume(client, interaction.guildId, level);
 
     client.emit('dashboard:sync');
     await interaction.reply(`Volume set to **${level}%**`);
   },
 
-  async prefixExecute(message, argsText, client) {
+  async prefixExecute(message, argsText, client, database) {
+    const { isIdleLiveActive, setIdleLiveVolume } = require('../idle-live');
     const queue = client.player?.nodes?.get(message.guild.id);
-    if (!queue || (!queue.currentTrack && !queue.isPlaying())) {
-      await message.reply('No active music queue in this server.');
+    const idleActive = isIdleLiveActive(client, message.guild.id);
+
+    if (!queue && !idleActive) {
+      await message.reply('No active music in this server.');
       return;
     }
 
     if (!argsText) {
-      await message.reply(`Volume: **${queue.node.volume}%**`);
+      const current = queue ? queue.node.volume : database.getGuildVolume(message.guild.id);
+      await message.reply(`Volume: **${current}%**`);
       return;
     }
 
@@ -61,8 +67,11 @@ module.exports = {
       return;
     }
 
-    const changed = queue.node.setVolume(level);
-    await message.reply(changed ? `Volume set: **${level}%**` : 'Volume did not change.');
+    database.setGuildVolume(message.guild.id, level);
+    if (queue) queue.node.setVolume(level);
+    if (idleActive) setIdleLiveVolume(client, message.guild.id, level);
+
+    await message.reply(`Volume set: **${level}%**`);
     client.emit('dashboard:sync');
   }
 };

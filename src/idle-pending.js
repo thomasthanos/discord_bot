@@ -1,5 +1,6 @@
 ﻿const { QueryType } = require('discord-player');
 const { isIdleLiveActive, stopIdleLive, getIdleLiveSession } = require('./idle-live');
+const database = require('./database');
 const DEBUG_AUDIO = String(process.env.DEBUG_AUDIO || '0') !== '0';
 
 function debugAudioLog(...parts) {
@@ -140,7 +141,7 @@ async function startNextPendingTrack(client, guild, voiceChannel = null, textCha
       leaveOnEndCooldown: 300000,
       leaveOnStop: true,
       leaveOnStopCooldown: 120000,
-      volume: 50
+      volume: database.getGuildVolume(guild.id)
     });
   } else {
     queue.metadata = { channel: resolvedTextChannel };
@@ -167,7 +168,8 @@ async function startNextPendingTrack(client, guild, voiceChannel = null, textCha
         leaveOnEnd: true,
         leaveOnEndCooldown: 300000,
         leaveOnStop: true,
-        leaveOnStopCooldown: 120000
+        leaveOnStopCooldown: 120000,
+        volume: database.getGuildVolume(guild.id)
       }
     });
   } catch (error) {

@@ -62,6 +62,11 @@ db.exec(`
     value TEXT NOT NULL
   );
 
+  CREATE TABLE IF NOT EXISTS guild_settings (
+    guild_id TEXT PRIMARY KEY,
+    volume INTEGER NOT NULL DEFAULT 50
+  );
+
   CREATE TABLE IF NOT EXISTS command_authorized_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id TEXT NOT NULL,
@@ -274,5 +279,19 @@ module.exports = {
   deleteClearLog(id) {
     const result = db.prepare('DELETE FROM clear_logs WHERE id = ?').run(id);
     return result.changes > 0;
+  },
+
+  getGuildVolume(guildId) {
+    const row = db.prepare('SELECT volume FROM guild_settings WHERE guild_id = ?').get(guildId);
+    return row ? row.volume : 50;
+  },
+
+  setGuildVolume(guildId, volume) {
+    const safe = Math.max(0, Math.min(100, Math.round(Number(volume))));
+    db.prepare(`
+      INSERT INTO guild_settings (guild_id, volume) VALUES (?, ?)
+      ON CONFLICT(guild_id) DO UPDATE SET volume = excluded.volume
+    `).run(guildId, safe);
+    return safe;
   }
 };

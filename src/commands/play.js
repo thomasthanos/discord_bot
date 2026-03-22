@@ -2,6 +2,7 @@ const { SlashCommandBuilder, MessageFlags } = require('discord.js');
 const { QueryType } = require('discord-player');
 const { isIdleLiveActive } = require('../idle-live');
 const { enqueueIdlePending, getIdlePendingCount } = require('../idle-pending');
+const database = require('../database');
 const DEBUG_AUDIO = String(process.env.DEBUG_AUDIO || '0') !== '0';
 
 function debugAudioLog(...parts) {
@@ -44,7 +45,7 @@ function ensureVoiceQueue(message, client) {
       leaveOnEndCooldown: 300000,
       leaveOnStop: true,
       leaveOnStopCooldown: 120000,
-      volume: 50
+      volume: database.getGuildVolume(message.guild.id)
     });
   } else {
     queue.metadata = { channel: message.channel };
@@ -135,7 +136,8 @@ module.exports = {
         leaveOnEnd: true,
         leaveOnEndCooldown: 300000,
         leaveOnStop: true,
-        leaveOnStopCooldown: 120000
+        leaveOnStopCooldown: 120000,
+        volume: database.getGuildVolume(interaction.guildId)
       }
     };
 
@@ -212,7 +214,8 @@ module.exports = {
         leaveOnEnd: true,
         leaveOnEndCooldown: 300000,
         leaveOnStop: true,
-        leaveOnStopCooldown: 120000
+        leaveOnStopCooldown: 120000,
+        volume: database.getGuildVolume(message.guild.id)
       }
     };
 

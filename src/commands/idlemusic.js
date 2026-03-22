@@ -124,16 +124,20 @@ module.exports = {
       return;
     }
 
-    const { track } = await startIdleLive(
-      client,
-      message.guild,
-      voiceChannel,
-      message.channel,
-      message.author,
-    );
-    client.autoIdleGuilds?.add(message.guild.id);
-
-    await message.reply(`Idle music enabled: **${track.title}**`);
-    client.emit('dashboard:sync');
+    try {
+      const { track } = await startIdleLive(
+        client,
+        message.guild,
+        voiceChannel,
+        message.channel,
+        message.author,
+      );
+      client.autoIdleGuilds?.add(message.guild.id);
+      await message.reply(`Idle music enabled: **${track.title}**`);
+      client.emit('dashboard:sync');
+    } catch (error) {
+      console.error('idlemusic prefix error:', error?.message || error);
+      await message.reply('Could not start idle music.');
+    }
   }
 };

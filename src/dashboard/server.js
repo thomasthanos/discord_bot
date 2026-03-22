@@ -398,6 +398,10 @@ async function startDashboard(client, database) {
       if (action === 'stop' && selectedGuildId) {
         const pendingCleared = clearIdlePending(client, selectedGuildId);
         client.autoIdleGuilds?.delete(selectedGuildId);
+        if (client.emptyQueueTimers?.has(selectedGuildId)) {
+          clearTimeout(client.emptyQueueTimers.get(selectedGuildId));
+          client.emptyQueueTimers.delete(selectedGuildId);
+        }
         if (queue) {
           try { queue.clear(); } catch {}
           try { queue.node.stop(); } catch {}
@@ -422,7 +426,9 @@ async function startDashboard(client, database) {
           if (action === 'set-volume') {
             const rawValue = Number(req.body?.value);
             if (!Number.isFinite(rawValue)) throw new Error('Invalid volume value.');
-            setIdleLiveVolume(client, selectedGuildId, Math.max(0, Math.min(100, Math.round(rawValue))));
+            const safeVol = Math.max(0, Math.min(100, Math.round(rawValue)));
+            database.setGuildVolume(selectedGuildId, safeVol);
+            setIdleLiveVolume(client, selectedGuildId, safeVol);
             client.emit('dashboard:sync');
             res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
             return;
@@ -449,7 +455,9 @@ async function startDashboard(client, database) {
         case 'set-volume': {
           const rawValue = Number(req.body?.value);
           if (!Number.isFinite(rawValue)) throw new Error('Invalid volume value.');
-          queue.node.setVolume(Math.max(0, Math.min(100, Math.round(rawValue))));
+          const safeVol = Math.max(0, Math.min(100, Math.round(rawValue)));
+          database.setGuildVolume(selectedGuildId, safeVol);
+          queue.node.setVolume(safeVol);
           break;
         }
         default:

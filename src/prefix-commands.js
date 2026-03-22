@@ -71,8 +71,6 @@ async function handlePrefixMessage(message, client, database, emitCommandLogsSyn
   try {
     if (typeof command.prefixExecute === 'function') {
       await command.prefixExecute(message, argsText, client, database);
-    } else if (command.prefixRedirect) {
-      await message.reply(`Use \`/${commandName}\` for this command.`);
     } else {
       await message.reply(`Use \`/${commandName}\` for this command.`);
     }

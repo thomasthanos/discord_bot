@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const youtubedl = require('youtube-dl-exec');
 const ffmpegPath = require('ffmpeg-static');
+const database = require('./database');
 const {
   joinVoiceChannel,
   getVoiceConnection,
@@ -110,7 +111,7 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
     restartTimer: null,
     stopping: false,
     paused: false,
-    volume: 50,
+    volume: database.getGuildVolume(guild.id),
     textChannel,
     requestedBy
   };

@@ -132,6 +132,11 @@ module.exports = {
       return;
     }
 
+    if (!AUTHORIZABLE_COMMANDS.includes(targetCommand)) {
+      await message.reply(`\`${targetCommand}\` cannot be restricted. Allowed: ${AUTHORIZABLE_COMMANDS.map(c => `\`${c}\``).join(', ')}`);
+      return;
+    }
+
     if (mode === 'remove') {
       const removed = database.removeAuthorizedUser(message.guild.id, targetCommand, user.id);
       await message.reply(removed

@@ -20,6 +20,11 @@ module.exports = {
     const idleActive = isIdleLiveActive(client, guildId);
     const pendingCleared = clearIdlePending(client, guildId);
     client.autoIdleGuilds?.delete(guildId);
+    // Cancel any pending emptyQueue timer to prevent race
+    if (client.emptyQueueTimers?.has(guildId)) {
+      clearTimeout(client.emptyQueueTimers.get(guildId));
+      client.emptyQueueTimers.delete(guildId);
+    }
 
     try {
       if (queue) {
@@ -68,6 +73,10 @@ module.exports = {
 
     const pendingCleared = clearIdlePending(client, guildId);
     client.autoIdleGuilds?.delete(guildId);
+    if (client.emptyQueueTimers?.has(guildId)) {
+      clearTimeout(client.emptyQueueTimers.get(guildId));
+      client.emptyQueueTimers.delete(guildId);
+    }
 
     if (queue) {
       try { queue.clear(); } catch {}
