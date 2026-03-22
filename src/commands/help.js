@@ -19,18 +19,11 @@ const CATEGORY_META = {
 
 const DEFAULT_META = { emoji: '📦', color: 0x95a5a6 };
 
-// Prefix alias map — kept here so help can show them alongside slash commands
-const PREFIX_ALIASES = {
-  'play':         '`!p` `!π`',
-  'stop':         '`!s` `!σ`',
-  'idlemusic':    '`!im` `!ιμ`',
-  'volume':       '`!v` `!β`',
-  'clear':        '`!c` `!ψ`',
-  'wipe-channel': '`!wc` `!ςψ`',
-  'invite-logger':'`!il` `!ιλ`',
-  'addauthorized':'`!aa` `!αα`',
-  'help':         '`!h` `!η`',
-};
+// Read aliases dynamically from each command module
+function getPrefixAliasLabel(cmd) {
+  if (!Array.isArray(cmd.aliases) || !cmd.aliases.length) return '';
+  return cmd.aliases.map((a) => `\`!${a}\``).join(' ');
+}
 
 function buildCategories(client) {
   const map = new Map();
@@ -49,7 +42,7 @@ function buildCategoryEmbed(client, categoryKey) {
 
   const fields = commands.map((cmd) => ({
     name: `\`/${cmd.data.name}\``,
-    value: `${cmd.data.description}\n${PREFIX_ALIASES[cmd.data.name] || ''}`.trim(),
+    value: `${cmd.data.description}\n${getPrefixAliasLabel(cmd)}`.trim(),
     inline: true
   }));
 
@@ -117,6 +110,7 @@ function buildDisabledButtons(client) {
 
 module.exports = {
   category: 'General',
+  aliases: ['h', 'η'],
   data: new SlashCommandBuilder()
     .setName('help')
     .setDescription('Show a modern help menu with command categories.'),
@@ -150,5 +144,19 @@ module.exports = {
     collector.on('end', async () => {
       await reply.edit({ components: [buildDisabledButtons(client)] }).catch(() => {});
     });
+  },
+
+  async prefixExecute(message, argsText, client) {
+    const pseudoInteraction = {
+      inGuild: () => Boolean(message.guild),
+      user: message.author,
+      guild: message.guild,
+      guildId: message.guild?.id || null,
+      channel: message.channel,
+      replied: false,
+      deferred: false,
+      reply: (payload) => message.reply(payload)
+    };
+    await module.exports.execute(pseudoInteraction, client);
   }
 };

@@ -205,9 +205,14 @@ async function startIdleLive(client, guild, voiceChannel, textChannel, requested
   });
 
   const result = await playFromSource();
-  if (textChannel) {
-    textChannel.send(`Now playing: **${result.track.title}** by **${result.track.author}**`).catch(() => {});
-  }
+  client.emit('idle:start', {
+    track: {
+      ...result.track,
+      requestedBy: requestedBy?.username || requestedBy?.tag || 'Unknown'
+    },
+    channel: textChannel,
+    guildId: guild.id
+  });
 
   return result;
 }

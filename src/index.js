@@ -1,7 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { Client, GatewayIntentBits, Collection, REST, Routes, MessageFlags } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, REST, Routes, MessageFlags, EmbedBuilder } = require('discord.js');
 const { Player, QueryType } = require('discord-player');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { Log } = require('youtubei.js');
@@ -89,6 +89,7 @@ client.trackFallbackAttempts = new Set();
 client.pendingStreamFallbacks = 0;
 client.lastAnnouncedTrackByGuild = new Map();
 client.autoIdleGuilds = new Set();
+client.musicEmbedByGuild = new Map();
 
 const commandsPath = path.join(__dirname, 'commands');
 const commandFiles = [];
@@ -151,15 +152,71 @@ async function initializeExtractors() {
   await player.extractors.loadMulti(extractors, extractorOptions);
 }
 
+function buildNowPlayingEmbed({ title, url, author, duration, thumbnail, requestedBy }) {
+  const embed = new EmbedBuilder()
+    .setColor(0x1db954)
+    .setTitle('🎵 Now Playing')
+    .setDescription(`**[${title}](${url || '#'})**`)
+    .addFields(
+      { name: '🎤 Artist', value: author || 'Unknown', inline: true },
+      { name: '⏱ Duration', value: duration || '--:--', inline: true },
+      { name: '👤 Requested by', value: String(requestedBy || 'Unknown'), inline: true }
+    )
+    .setTimestamp();
+  if (thumbnail) embed.setThumbnail(thumbnail);
+  return embed;
+}
+
+async function updateMusicEmbed(guildId, channel, embed) {
+  if (!channel || !guildId) return;
+  const existing = client.musicEmbedByGuild.get(guildId);
+  if (existing) {
+    try {
+      const ch = await client.channels.fetch(existing.channelId).catch(() => null);
+      const msg = ch ? await ch.messages.fetch(existing.messageId).catch(() => null) : null;
+      if (msg) {
+        await msg.edit({ embeds: [embed] });
+        return;
+      }
+    } catch {}
+    client.musicEmbedByGuild.delete(guildId);
+  }
+  try {
+    const msg = await channel.send({ embeds: [embed] });
+    client.musicEmbedByGuild.set(guildId, { channelId: channel.id, messageId: msg.id });
+  } catch {}
+}
+
+async function deleteMusicEmbed(guildId) {
+  const embedInfo = client.musicEmbedByGuild.get(guildId);
+  if (!embedInfo) return;
+  try {
+    const ch = await client.channels.fetch(embedInfo.channelId).catch(() => null);
+    const msg = ch ? await ch.messages.fetch(embedInfo.messageId).catch(() => null) : null;
+    if (msg) await msg.delete().catch(() => {});
+  } catch {}
+  client.musicEmbedByGuild.delete(guildId);
+}
+
 player.events.on('playerStart', (queue, track) => {
   const announceKey = track.url || `${track.title}|${track.author}`;
   const last = client.lastAnnouncedTrackByGuild.get(queue.guild.id);
   const isDuplicateStart = last && last.key === announceKey && Date.now() - last.at < 45000;
 
   if (!isDuplicateStart) {
-    queue.metadata?.channel?.send(`Now playing: **${track.title}** by **${track.author}**`);
     database.logSong(track.title, track.author, track.url, track.requestedBy?.username || 'Unknown', queue.guild.id);
     client.lastAnnouncedTrackByGuild.set(queue.guild.id, { key: announceKey, at: Date.now() });
+    const embed = buildNowPlayingEmbed({
+      title: track.title,
+      url: track.url,
+      author: track.author,
+      duration: track.duration,
+      thumbnail: track.thumbnail,
+      requestedBy: track.requestedBy?.username || track.requestedBy?.tag || 'Unknown'
+    });
+    if (queue.metadata?.channel) {
+      updateMusicEmbed(queue.guild.id, queue.metadata.channel, embed).catch(() => {});
+    }
   }
 
   client.currentTrack = {
@@ -173,6 +230,19 @@ player.events.on('playerStart', (queue, track) => {
     startedAt: Date.now()
   };
   emitDashboardSync();
+});
+
+client.on('idle:start', ({ track, channel, guildId }) => {
+  if (!channel) return;
+  const embed = buildNowPlayingEmbed({
+    title: track.title,
+    url: track.url,
+    author: track.author,
+    duration: track.duration || 'LIVE',
+    thumbnail: track.thumbnail,
+    requestedBy: track.requestedBy || 'Unknown'
+  });
+  updateMusicEmbed(guildId, channel, embed).catch(() => {});
 });
 
 player.events.on('playerFinish', () => { client.currentTrack = null; emitDashboardSync(); });
@@ -210,7 +280,7 @@ player.events.on('emptyQueue', (queue) => {
     }
   }
 
-  queue.metadata?.channel?.send('Queue finished. No more songs to play.');
+  deleteMusicEmbed(queue.guild.id).catch(() => {});
   client.currentTrack = null;
   emitDashboardSync();
 });
@@ -277,6 +347,9 @@ client.once('clientReady', async () => {
       const targetGuildIds = explicitGuildId
         ? [explicitGuildId]
         : [...client.guilds.cache.keys()];
+
+      // Clear global commands to prevent duplicates with guild commands
+      await rest.put(Routes.applicationCommands(process.env.CLIENT_ID), { body: [] });
 
       await Promise.all(
         targetGuildIds.map((guildId) =>

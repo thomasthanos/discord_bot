@@ -4,6 +4,7 @@ const { clearIdlePending } = require('../idle-pending');
 
 module.exports = {
   category: 'Music',
+  aliases: ['s', 'σ'],
   data: new SlashCommandBuilder()
     .setName('stop')
     .setDescription('Stop music and clear the queue/pending list.'),
@@ -40,6 +41,7 @@ module.exports = {
       if (client.currentTrack?.guildId === guildId) {
         client.currentTrack = null;
       }
+      client.musicEmbedByGuild?.delete(guildId);
       client.emit('dashboard:sync');
 
       await interaction.reply(
@@ -52,5 +54,36 @@ module.exports = {
         flags: MessageFlags.Ephemeral
       });
     }
+  },
+
+  async prefixExecute(message, argsText, client) {
+    const guildId = message.guild.id;
+    const queue = client.player?.nodes?.get(guildId) || null;
+    const idleActive = isIdleLiveActive(client, guildId);
+
+    if (!queue && !idleActive && !client.currentTrack) {
+      await message.reply('Nothing is playing right now.');
+      return;
+    }
+
+    const pendingCleared = clearIdlePending(client, guildId);
+    client.autoIdleGuilds?.delete(guildId);
+
+    if (queue) {
+      try { queue.clear(); } catch {}
+      try { queue.node.stop(); } catch {}
+      try { queue.delete(); } catch {}
+    }
+
+    if (idleActive) {
+      await stopIdleLive(client, guildId, { destroyConnection: true });
+    }
+
+    if (client.currentTrack?.guildId === guildId) {
+      client.currentTrack = null;
+    }
+    client.musicEmbedByGuild?.delete(guildId);
+    client.emit('dashboard:sync');
+    await message.reply(`Stopped. Cleared queue and pending (${pendingCleared}).`);
   }
 };

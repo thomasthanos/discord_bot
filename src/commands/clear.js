@@ -52,6 +52,8 @@ async function serializeMessage(message, guildId) {
 
 module.exports = {
   category: 'Moderation',
+  aliases: ['c', 'ψ'],
+  prefixRedirect: true,
   data: new SlashCommandBuilder()
     .setName('clear')
     .setDescription('Delete recent messages and store a full transcript in dashboard logs.')

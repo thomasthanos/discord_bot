@@ -10,6 +10,7 @@ function debugAudioLog(...parts) {
 
 module.exports = {
   category: 'Music',
+  aliases: ['im', 'ιμ'],
   data: new SlashCommandBuilder()
     .setName('idlemusic')
     .setDescription('Play the fixed idle music track.'),
@@ -90,7 +91,49 @@ module.exports = {
       console.error('idlemusic command error:', error);
       await interaction.editReply('Could not start idle music.');
     }
+  },
+
+  async prefixExecute(message, argsText, client) {
+    const voiceChannel = message.member?.voice?.channel;
+    if (!voiceChannel) {
+      await message.reply('Join a voice channel first.');
+      return;
+    }
+
+    if (isIdleLiveActive(client, message.guild.id)) {
+      await message.reply('Idle music is already playing.');
+      return;
+    }
+
+    const queue = client.player?.nodes?.get(message.guild.id) || null;
+    if (queue && (!queue.connection || queue.channel?.id !== voiceChannel.id)) {
+      try {
+        await queue.connect(voiceChannel);
+      } catch {
+        await message.reply('Could not move to your voice channel.');
+        return;
+      }
+    }
+
+    const hasActivePlayback =
+      Boolean(queue?.currentTrack) ||
+      Boolean(queue?.isPlaying?.()) ||
+      Number(queue?.size || 0) > 0;
+    if (hasActivePlayback) {
+      await message.reply('Queue is active. Use `/stop` first, then run `!idlemusic`.');
+      return;
+    }
+
+    const { track } = await startIdleLive(
+      client,
+      message.guild,
+      voiceChannel,
+      message.channel,
+      message.author,
+    );
+    client.autoIdleGuilds?.add(message.guild.id);
+
+    await message.reply(`Idle music enabled: **${track.title}**`);
+    client.emit('dashboard:sync');
   }
 };
-
-

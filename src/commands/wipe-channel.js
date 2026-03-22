@@ -89,6 +89,8 @@ async function collectMessages(channel) {
 
 module.exports = {
   category: 'Moderation',
+  aliases: ['wc', 'wipe', 'ςψ'],
+  prefixRedirect: true,
   data: new SlashCommandBuilder()
     .setName('wipe-channel')
     .setDescription('Slowly delete all messages in the current channel (authorized users only).'),

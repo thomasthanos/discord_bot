@@ -405,6 +405,7 @@ async function startDashboard(client, database) {
         }
         if (idleActive) await stopIdleLive(client, selectedGuildId, { destroyConnection: true });
         if (client.currentTrack?.guildId === selectedGuildId) client.currentTrack = null;
+        client.musicEmbedByGuild?.delete(selectedGuildId);
         client.emit('dashboard:sync');
         res.json({ ok: true, pendingCleared, payload: buildSyncPayload(client, database, selectedGuildId) });
         return;

@@ -7,8 +7,16 @@ const AUTHORIZABLE_COMMANDS = [
   'invite-logger',
 ];
 
+function parseUserId(raw) {
+  if (!raw) return null;
+  const mentionMatch = raw.match(/^<@!?(\d+)>$/);
+  if (mentionMatch) return mentionMatch[1];
+  return /^\d+$/.test(raw) ? raw : null;
+}
+
 module.exports = {
   category: 'Admin',
+  aliases: ['aa', 'αα'],
   data: new SlashCommandBuilder()
     .setName('addauthorized')
     .setDescription('Authorize or remove a user for a specific command (server owner only).')
@@ -94,5 +102,44 @@ module.exports = {
       .setFooter({ text: `Use /addauthorized again with mode: Remove to undo.` });
 
     await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+  },
+
+  async prefixExecute(message, argsText, client, database) {
+    const pseudoInteraction = { user: message.author, guild: message.guild };
+    if (!canManageAuthorization(pseudoInteraction)) {
+      await message.reply('Only the server owner can manage authorization.');
+      return;
+    }
+
+    const args = argsText.split(/\s+/);
+    const targetCommand = (args[0] || '').toLowerCase();
+    const targetUserId = parseUserId(args[1] || '');
+    const mode = (args[2] || 'add').toLowerCase();
+
+    if (!targetCommand || !targetUserId || !['add', 'remove'].includes(mode)) {
+      await message.reply('Usage: `!aa <command> <@user|userId> [add|remove]`');
+      return;
+    }
+
+    const user = await client.users.fetch(targetUserId).catch(() => null);
+    if (!user) {
+      await message.reply('User not found.');
+      return;
+    }
+
+    if (!client.commands.has(targetCommand)) {
+      await message.reply(`Command \`${targetCommand}\` does not exist.`);
+      return;
+    }
+
+    if (mode === 'remove') {
+      const removed = database.removeAuthorizedUser(message.guild.id, targetCommand, user.id);
+      await message.reply(removed
+        ? `Removed authorization for <@${user.id}> on \`/${targetCommand}\`.`
+        : `<@${user.id}> was not authorized for \`/${targetCommand}\`.`);
+    } else {
+      database.addAuthorizedUser(message.guild.id, targetCommand, user, message.author);
+      await message.reply(`Authorized <@${user.id}> for \`/${targetCommand}\`.`);
+    }
   }
 };

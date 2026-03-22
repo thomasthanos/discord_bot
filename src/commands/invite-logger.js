@@ -15,6 +15,7 @@ function formatTimeAgo(timestamp) {
 
 module.exports = {
   category: 'Invites',
+  aliases: ['il', 'ιλ'],
   data: new SlashCommandBuilder()
     .setName('invite-logger')
     .setDescription('Show invite leaderboard and recent joins for this server.')
@@ -67,5 +68,20 @@ module.exports = {
 
     await interaction.reply({ embeds: [embed] });
     client.emit('dashboard:sync');
+  },
+
+  async prefixExecute(message, argsText, client, database) {
+    const pseudoInteraction = {
+      inGuild: () => Boolean(message.guild),
+      user: message.author,
+      guild: message.guild,
+      guildId: message.guild?.id || null,
+      channel: message.channel,
+      replied: false,
+      deferred: false,
+      options: { getInteger: () => null },
+      reply: (payload) => message.reply(payload)
+    };
+    await module.exports.execute(pseudoInteraction, client, database);
   }
 };
