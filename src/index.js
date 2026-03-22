@@ -105,7 +105,19 @@ function loadCommands(dir) {
   }
 }
 
-function emitDashboardSync() { client.emit('dashboard:sync'); }
+// Debounced dashboard sync — collapses rapid-fire calls during track transitions
+let _dashboardSyncTimer = null;
+function emitDashboardSync() {
+  if (_dashboardSyncTimer) return;
+  _dashboardSyncTimer = setTimeout(() => {
+    _dashboardSyncTimer = null;
+    client.emit('dashboard:sync');
+  }, 80);
+}
+function emitDashboardSyncImmediate() {
+  if (_dashboardSyncTimer) { clearTimeout(_dashboardSyncTimer); _dashboardSyncTimer = null; }
+  client.emit('dashboard:sync');
+}
 function emitCommandLogsSync() { client.emit('dashboard:commandLogs'); }
 
 loadCommands(commandsPath);
@@ -132,7 +144,7 @@ player.extractors.register(YoutubeiExtractor, {
   disablePlayer: true,
   overrideBridgeMode: 'yt',
   useServerAbrStream: true,
-  useYoutubeDL: true,
+  useYoutubeDL: false,
   logLevel: 'NONE',
   cookie: process.env.YT_COOKIE || undefined,
   streamOptions: { useClient: 'ANDROID', highWaterMark: 1 << 25 }
@@ -173,10 +185,17 @@ async function updateMusicEmbed(guildId, channel, embed) {
   const existing = client.musicEmbedByGuild.get(guildId);
   if (existing) {
     try {
-      const ch = await client.channels.fetch(existing.channelId).catch(() => null);
-      const msg = ch ? await ch.messages.fetch(existing.messageId).catch(() => null) : null;
+      // Use cached message object if available — avoids 2 Discord API roundtrips
+      let msg = existing.msgObj;
+      if (!msg) {
+        const ch = existing.channelId === channel.id
+          ? channel
+          : (client.channels.cache.get(existing.channelId) || await client.channels.fetch(existing.channelId).catch(() => null));
+        msg = ch ? await ch.messages.fetch(existing.messageId).catch(() => null) : null;
+      }
       if (msg) {
         await msg.edit({ embeds: [embed] });
+        existing.msgObj = msg;
         return;
       }
     } catch {}
@@ -184,7 +203,7 @@ async function updateMusicEmbed(guildId, channel, embed) {
   }
   try {
     const msg = await channel.send({ embeds: [embed] });
-    client.musicEmbedByGuild.set(guildId, { channelId: channel.id, messageId: msg.id });
+    client.musicEmbedByGuild.set(guildId, { channelId: channel.id, messageId: msg.id, msgObj: msg });
   } catch {}
 }
 
@@ -192,8 +211,12 @@ async function deleteMusicEmbed(guildId) {
   const embedInfo = client.musicEmbedByGuild.get(guildId);
   if (!embedInfo) return;
   try {
-    const ch = await client.channels.fetch(embedInfo.channelId).catch(() => null);
-    const msg = ch ? await ch.messages.fetch(embedInfo.messageId).catch(() => null) : null;
+    // Use cached message object — avoids 2 Discord API roundtrips
+    let msg = embedInfo.msgObj;
+    if (!msg) {
+      const ch = client.channels.cache.get(embedInfo.channelId) || await client.channels.fetch(embedInfo.channelId).catch(() => null);
+      msg = ch ? await ch.messages.fetch(embedInfo.messageId).catch(() => null) : null;
+    }
     if (msg) await msg.delete().catch(() => {});
   } catch {}
   client.musicEmbedByGuild.delete(guildId);
@@ -205,7 +228,7 @@ player.events.on('playerStart', (queue, track) => {
   const isDuplicateStart = last && last.key === announceKey && Date.now() - last.at < 45000;
 
   if (!isDuplicateStart) {
-    database.logSong(track.title, track.author, track.url, track.requestedBy?.username || 'Unknown', queue.guild.id);
+    setImmediate(() => database.logSong(track.title, track.author, track.url, track.requestedBy?.username || 'Unknown', queue.guild.id));
     client.lastAnnouncedTrackByGuild.set(queue.guild.id, { key: announceKey, at: Date.now() });
     const embed = buildNowPlayingEmbed({
       title: track.title,
@@ -276,7 +299,7 @@ player.events.on('emptyQueue', (queue) => {
         client.emptyQueueTimers.delete(guildId);
         try { await startNextPendingTrack(client, queue.guild, voiceChannel, textChannel); emitDashboardSync(); }
         catch (error) { console.error('Pending-next failed:', error?.message || error); }
-      }, 120);
+      }, 0);
       client.emptyQueueTimers.set(guildId, timer);
       return;
     }

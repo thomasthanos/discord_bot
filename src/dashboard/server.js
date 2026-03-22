@@ -386,7 +386,7 @@ async function startDashboard(client, database) {
           const voiceChannelId = session?.connection?.joinConfig?.channelId || null;
           const voiceChannel = (guild && voiceChannelId) ? guild.channels.cache.get(voiceChannelId) : null;
           const textChannel = session?.textChannel || null;
-          await startNextPendingTrack(client, guild, voiceChannel, textChannel, { destroyIdleConnection: true });
+          await startNextPendingTrack(client, guild, voiceChannel, textChannel, { destroyIdleConnection: false });
           client.emit('dashboard:sync');
           res.json({ ok: true, payload: buildSyncPayload(client, database, selectedGuildId) });
           return;

@@ -120,6 +120,7 @@ module.exports = {
         content: `Queued while idle is playing. Pending: **${pending}**. Use skip to start.`,
         flags: MessageFlags.Ephemeral
       });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 8000);
       return;
     }
 
@@ -193,7 +194,8 @@ module.exports = {
         textChannel: message.channel
       });
       const pending = getIdlePendingCount(client, message.guild.id);
-      await message.reply(`Queued while idle is playing. Pending: **${pending}**. Use skip to start.`);
+      const replyMsg = await message.reply(`Queued while idle is playing. Pending: **${pending}**. Use skip to start.`);
+      setTimeout(() => replyMsg.delete().catch(() => {}), 8000);
       return;
     }
 

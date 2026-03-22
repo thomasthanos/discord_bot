@@ -159,9 +159,12 @@ async function startNextPendingTrack(client, guild, voiceChannel = null, textCha
   );
   let playResult;
   try {
-    playResult = await client.player.play(resolvedVoiceChannel, next.query, {
+    // Use cached URL if available to skip re-searching
+    const playQuery = next.url || next.query;
+    const playEngine = next.url ? QueryType.AUTO : (next.searchEngine || QueryType.AUTO);
+    playResult = await client.player.play(resolvedVoiceChannel, playQuery, {
       requestedBy: next.requestedBy || client.user,
-      searchEngine: next.searchEngine || QueryType.AUTO,
+      searchEngine: playEngine,
       fallbackSearchEngine: QueryType.YOUTUBE_SEARCH,
       nodeOptions: {
         metadata: { channel: resolvedTextChannel },

@@ -281,9 +281,15 @@ module.exports = {
     return result.changes > 0;
   },
 
+  // In-memory volume cache — avoids synchronous SQLite on every track start
+  _volumeCache: new Map(),
+
   getGuildVolume(guildId) {
+    if (this._volumeCache.has(guildId)) return this._volumeCache.get(guildId);
     const row = db.prepare('SELECT volume FROM guild_settings WHERE guild_id = ?').get(guildId);
-    return row ? row.volume : 50;
+    const vol = row ? row.volume : 50;
+    this._volumeCache.set(guildId, vol);
+    return vol;
   },
 
   setGuildVolume(guildId, volume) {
@@ -292,6 +298,7 @@ module.exports = {
       INSERT INTO guild_settings (guild_id, volume) VALUES (?, ?)
       ON CONFLICT(guild_id) DO UPDATE SET volume = excluded.volume
     `).run(guildId, safe);
+    this._volumeCache.set(guildId, safe);
     return safe;
   }
 };
